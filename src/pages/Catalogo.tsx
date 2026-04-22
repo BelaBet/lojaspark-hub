@@ -6,9 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { Link } from "react-router-dom";
-import { Plus, Search, Package, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type Product = {
   id: string;
@@ -22,6 +29,7 @@ type Product = {
 };
 
 const Catalogo = () => {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -45,6 +53,18 @@ const Catalogo = () => {
     if (error) return toast.error(error.message);
     toast.success("Produto excluído");
     setItems((it) => it.filter((p) => p.id !== id));
+  };
+
+  const handleToggleActive = async (p: Product) => {
+    const next = !p.is_active;
+    const { error } = await supabase.from("products").update({ is_active: next }).eq("id", p.id);
+    if (error) return toast.error(error.message);
+    setItems((it) => it.map((x) => (x.id === p.id ? { ...x, is_active: next } : x)));
+    toast.success(next ? "Produto ativado" : "Produto desativado");
+  };
+
+  const handleDuplicate = (p: Product) => {
+    navigate(`/catalogo/novo?duplicar=${p.id}`);
   };
 
   const filtered = items.filter((p) => {
@@ -128,9 +148,28 @@ const Catalogo = () => {
                         </Badge>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => navigate(`/catalogo/${p.id}/editar`)}>
+                              <Pencil className="h-4 w-4 mr-2" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                              <Copy className="h-4 w-4 mr-2" /> Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleActive(p)}>
+                              <Power className="h-4 w-4 mr-2" /> {p.is_active ? "Desativar" : "Ativar"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}

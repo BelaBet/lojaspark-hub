@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,13 +30,50 @@ const schema = z.object({
 
 const CatalogoNovo = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+  const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const duplicateFrom = search?.get("duplicar") || null;
+  const sourceId = id || duplicateFrom;
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(Boolean(sourceId));
   const [active, setActive] = useState(true);
   const [form, setForm] = useState({
     name: "", sku: "", barcode: "", category: "", description: "",
     price: "", cost: "", stock: "0",
     weight: "", height: "", width: "", depth: "", image_url: "",
   });
+
+  useEffect(() => {
+    if (!sourceId) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", sourceId)
+        .maybeSingle();
+      if (error) toast.error(error.message);
+      if (data) {
+        setActive(isEdit ? data.is_active : true);
+        setForm({
+          name: isEdit ? data.name : `${data.name} (cópia)`,
+          sku: isEdit ? data.sku ?? "" : "",
+          barcode: isEdit ? data.barcode ?? "" : "",
+          category: data.category ?? "",
+          description: data.description ?? "",
+          price: data.price?.toString() ?? "",
+          cost: data.cost?.toString() ?? "",
+          stock: isEdit ? (data.stock?.toString() ?? "0") : "0",
+          weight: data.weight?.toString() ?? "",
+          height: data.height?.toString() ?? "",
+          width: data.width?.toString() ?? "",
+          depth: data.depth?.toString() ?? "",
+          image_url: data.image_url ?? "",
+        });
+      }
+      setLoading(false);
+    })();
+  }, [sourceId, isEdit]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
@@ -81,10 +118,12 @@ const CatalogoNovo = () => {
       is_active: active,
       user_id: userData.user.id,
     };
-    const { error } = await supabase.from("products").insert(payload);
+    const { error } = isEdit
+      ? await supabase.from("products").update(payload).eq("id", id!)
+      : await supabase.from("products").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success("Produto cadastrado!");
+    toast.success(isEdit ? "Produto atualizado!" : "Produto cadastrado!");
     navigate("/catalogo");
   };
 
@@ -96,11 +135,18 @@ const CatalogoNovo = () => {
             <ArrowLeft className="h-3 w-3" /> voltar para catálogo
           </Link>
           <div className="mt-3">
-            <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Cadastro</span>
-            <h1 className="font-display text-4xl font-bold tracking-tight mt-1">Novo produto</h1>
+            <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {isEdit ? "Edição" : duplicateFrom ? "Duplicação" : "Cadastro"}
+            </span>
+            <h1 className="font-display text-4xl font-bold tracking-tight mt-1">
+              {isEdit ? "Editar produto" : "Novo produto"}
+            </h1>
           </div>
         </div>
 
+        {loading ? (
+          <Card className="p-12 text-center mono text-sm text-muted-foreground">carregando…</Card>
+        ) : (
         <form onSubmit={submit} className="space-y-5">
           <Card className="p-7 shadow-soft-sm space-y-5">
             <SectionTitle>Informações básicas</SectionTitle>
@@ -162,9 +208,12 @@ const CatalogoNovo = () => {
 
           <div className="flex justify-end gap-3">
             <Link to="/catalogo"><Button type="button" variant="outline" className="h-11">Cancelar</Button></Link>
-            <Button type="submit" disabled={saving} className="h-11 px-8">{saving ? "Salvando…" : "Salvar produto"}</Button>
+            <Button type="submit" disabled={saving} className="h-11 px-8">
+              {saving ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar produto"}
+            </Button>
           </div>
         </form>
+        )}
       </div>
     </AppLayout>
   );
