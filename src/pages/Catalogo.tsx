@@ -148,9 +148,28 @@ const Catalogo = () => {
                         </Badge>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(p.id)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => navigate(`/catalogo/${p.id}/editar`)}>
+                              <Pencil className="h-4 w-4 mr-2" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
+                              <Copy className="h-4 w-4 mr-2" /> Duplicar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleActive(p)}>
+                              <Power className="h-4 w-4 mr-2" /> {p.is_active ? "Desativar" : "Ativar"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
