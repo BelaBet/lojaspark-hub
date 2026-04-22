@@ -64,7 +64,7 @@ const CatalogoNovo = () => {
       image_url: form.image_url || "",
     });
     if (!parsed.success) {
-      toast.error(parsed.error.errors[0]?.message || "Dados inválidos");
+      toast.error(parsed.error.issues[0]?.message || "Dados inválidos");
       return;
     }
     setSaving(true);
