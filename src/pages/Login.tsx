@@ -1,0 +1,136 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Store } from "lucide-react";
+import { toast } from "sonner";
+
+const Login = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate("/dashboard", { replace: true });
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s) navigate("/dashboard", { replace: true });
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) toast.error(error.message);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    setLoading(false);
+    if (error) toast.error(error.message);
+    else toast.success("Conta criada! Verifique seu e-mail.");
+  };
+
+  return (
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background">
+      {/* Brand panel */}
+      <aside className="lg:w-1/2 bg-primary text-primary-foreground p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
+        <div className="relative flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur">
+            <Store className="h-6 w-6" />
+          </div>
+          <span className="font-display text-2xl font-bold tracking-tight">LojaHub</span>
+        </div>
+        <div className="relative max-w-md">
+          <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-tight">
+            Sua loja, <br />
+            sob controle.
+          </h1>
+          <p className="mt-5 text-primary-foreground/80 text-base leading-relaxed">
+            Catálogo, estoque e pedidos em um único painel. Simples como um caderno, poderoso como um ERP.
+          </p>
+          <div className="mt-10 grid grid-cols-3 gap-4">
+            {[
+              { k: "98%", l: "uptime" },
+              { k: "+12k", l: "produtos" },
+              { k: "2 min", l: "setup" },
+            ].map((s) => (
+              <div key={s.l}>
+                <div className="num text-3xl font-bold">{s.k}</div>
+                <div className="mono text-[10px] uppercase tracking-widest text-primary-foreground/60 mt-1">{s.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative mono text-xs text-primary-foreground/50">© LojaHub · 2026</div>
+      </aside>
+
+      {/* Auth form */}
+      <main className="lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-surface">
+        <Card className="w-full max-w-md p-8 shadow-soft-md border-border">
+          <div className="mb-6">
+            <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Acesso de lojista</span>
+            <h2 className="font-display text-3xl font-bold mt-2 tracking-tight">Bem-vindo</h2>
+          </div>
+
+          <Tabs defaultValue="login">
+            <TabsList className="grid grid-cols-2 w-full mb-6 bg-muted">
+              <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsTrigger value="signup">Criar conta</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@loja.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full h-11 text-base">
+                  {loading ? "Entrando…" : "Entrar"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="signup">
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email-s">E-mail</Label>
+                  <Input id="email-s" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@loja.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password-s">Senha</Label>
+                  <Input id="password-s" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="mínimo 6 caracteres" />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full h-11 text-base">
+                  {loading ? "Criando…" : "Criar conta"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </Card>
+      </main>
+    </div>
+  );
+};
+
+export default Login;
