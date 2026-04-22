@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { ProductImageInput } from "@/components/ProductImageInput";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Nome obrigatório").max(200),
@@ -194,9 +195,10 @@ const CatalogoNovo = () => {
 
           <Card className="p-7 shadow-soft-sm space-y-5">
             <SectionTitle>Mídia e status</SectionTitle>
-            <Field label="URL da imagem">
-              <Input type="url" value={form.image_url} onChange={set("image_url")} maxLength={500} placeholder="https://…" />
-            </Field>
+            <ProductImageInput
+              value={form.image_url}
+              onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+            />
             <div className="flex items-center justify-between rounded-lg border border-border p-4">
               <div>
                 <Label className="text-base">Produto ativo</Label>
