@@ -1,76 +1,98 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-type Product = {
+type Produto = {
   id: string;
-  name: string;
+  nome: string;
   sku: string | null;
-  category: string | null;
-  price: number;
-  stock: number;
-  is_active: boolean;
-  image_url: string | null;
+  ean: string | null;
+  categoria: string | null;
+  preco_venda: number;
+  ativo: boolean;
+  fotos: string[] | null;
+  estoque: { quantidade: number; quantidade_minima: number }[];
+};
+
+const stockTone = (qtd: number, min: number) => {
+  if (qtd <= 0) return { cls: "bg-destructive/10 text-destructive", label: "Sem estoque" };
+  if (qtd <= Math.max(min, 5)) return { cls: "bg-warning/10 text-warning", label: `${qtd} un.` };
+  return { cls: "bg-primary-soft text-primary", label: `${qtd} un.` };
 };
 
 const Catalogo = () => {
   const navigate = useNavigate();
-  const [items, setItems] = useState<Product[]>([]);
+  const [items, setItems] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [cat, setCat] = useState<string>("todas");
+  const [status, setStatus] = useState<string>("todos");
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
-      .from("products")
-      .select("id,name,sku,category,price,stock,is_active,image_url")
+      .from("produtos")
+      .select("id,nome,sku,ean,categoria,preco_venda,ativo,fotos,estoque(quantidade,quantidade_minima)")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setItems((data as Product[]) ?? []);
+    setItems((data as unknown as Produto[]) ?? []);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
+  const categorias = useMemo(() => {
+    const s = new Set<string>();
+    items.forEach((p) => p.categoria && s.add(p.categoria));
+    return Array.from(s).sort();
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return items.filter((p) => {
+      if (status === "ativos" && !p.ativo) return false;
+      if (status === "inativos" && p.ativo) return false;
+      if (cat !== "todas" && p.categoria !== cat) return false;
+      if (!s) return true;
+      return (
+        p.nome.toLowerCase().includes(s) ||
+        p.sku?.toLowerCase().includes(s) ||
+        p.ean?.toLowerCase().includes(s)
+      );
+    });
+  }, [items, q, cat, status]);
+
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este produto?")) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { error } = await supabase.from("produtos").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Produto excluído");
     setItems((it) => it.filter((p) => p.id !== id));
   };
 
-  const handleToggleActive = async (p: Product) => {
-    const next = !p.is_active;
-    const { error } = await supabase.from("products").update({ is_active: next }).eq("id", p.id);
+  const handleToggle = async (p: Produto) => {
+    const next = !p.ativo;
+    const { error } = await supabase.from("produtos").update({ ativo: next }).eq("id", p.id);
     if (error) return toast.error(error.message);
-    setItems((it) => it.map((x) => (x.id === p.id ? { ...x, is_active: next } : x)));
+    setItems((it) => it.map((x) => (x.id === p.id ? { ...x, ativo: next } : x)));
     toast.success(next ? "Produto ativado" : "Produto desativado");
   };
-
-  const handleDuplicate = (p: Product) => {
-    navigate(`/catalogo/novo?duplicar=${p.id}`);
-  };
-
-  const filtered = items.filter((p) => {
-    const s = q.toLowerCase();
-    return !s || p.name.toLowerCase().includes(s) || p.sku?.toLowerCase().includes(s);
-  });
 
   return (
     <AppLayout>
@@ -79,104 +101,135 @@ const Catalogo = () => {
           <div>
             <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Produtos</span>
             <h1 className="font-display text-4xl font-bold tracking-tight mt-1">Catálogo</h1>
-            <p className="text-muted-foreground text-sm mt-1">{items.length} {items.length === 1 ? "produto" : "produtos"} cadastrados</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              {items.length} {items.length === 1 ? "produto" : "produtos"} cadastrados
+            </p>
           </div>
           <Link to="/catalogo/novo">
             <Button className="h-10"><Plus className="h-4 w-4 mr-1" /> Novo produto</Button>
           </Link>
         </header>
 
-        <div className="relative max-w-md">
-          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome ou SKU…" className="pl-9 h-10" />
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[260px] max-w-md">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por nome, SKU ou EAN…"
+              className="pl-9 h-10"
+            />
+          </div>
+          <Select value={cat} onValueChange={setCat}>
+            <SelectTrigger className="w-[180px] h-10"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas categorias</SelectItem>
+              {categorias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="w-[160px] h-10"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos status</SelectItem>
+              <SelectItem value="ativos">Apenas ativos</SelectItem>
+              <SelectItem value="inativos">Apenas inativos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
-          <Card className="p-12 text-center mono text-sm text-muted-foreground">carregando…</Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="p-4 shadow-soft-sm">
+                <Skeleton className="aspect-square w-full rounded-md" />
+                <Skeleton className="h-4 w-3/4 mt-4" />
+                <Skeleton className="h-3 w-1/3 mt-2" />
+                <Skeleton className="h-6 w-1/2 mt-4" />
+              </Card>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <Card className="p-16 text-center shadow-soft-sm">
             <div className="mx-auto h-14 w-14 rounded-2xl bg-primary-soft flex items-center justify-center text-primary">
               <Package className="h-7 w-7" />
             </div>
-            <h3 className="font-display text-2xl font-bold mt-5">Nenhum produto ainda</h3>
-            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">Comece cadastrando seu primeiro produto e construa o catálogo da sua loja.</p>
-            <Link to="/catalogo/novo">
-              <Button className="mt-6"><Plus className="h-4 w-4 mr-1" /> Cadastrar produto</Button>
-            </Link>
+            <h3 className="font-display text-2xl font-bold mt-5">
+              {items.length === 0 ? "Nenhum produto ainda" : "Nada encontrado"}
+            </h3>
+            <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
+              {items.length === 0
+                ? "Comece cadastrando seu primeiro produto e construa o catálogo da sua loja."
+                : "Tente outro termo de busca ou ajuste os filtros."}
+            </p>
+            {items.length === 0 && (
+              <Link to="/catalogo/novo">
+                <Button className="mt-6"><Plus className="h-4 w-4 mr-1" /> Cadastrar produto</Button>
+              </Link>
+            )}
           </Card>
         ) : (
-          <Card className="overflow-hidden shadow-soft-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border bg-surface">
-                    <th className="text-left mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">Produto</th>
-                    <th className="text-left mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">SKU</th>
-                    <th className="text-left mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">Categoria</th>
-                    <th className="text-right mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">Preço</th>
-                    <th className="text-right mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">Estoque</th>
-                    <th className="text-center mono text-[10px] uppercase tracking-widest text-muted-foreground px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((p) => (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-surface/60 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                            {p.image_url ? (
-                              <img src={p.image_url} alt={p.name} className="h-full w-full object-cover" />
-                            ) : (
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </div>
-                          <span className="font-medium">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 mono text-xs text-muted-foreground">{p.sku || "—"}</td>
-                      <td className="px-5 py-4 text-sm text-muted-foreground">{p.category || "—"}</td>
-                      <td className="px-5 py-4 text-right num font-semibold tabular-nums">{brl(p.price)}</td>
-                      <td className="px-5 py-4 text-right">
-                        <span className={`mono text-sm font-semibold ${p.stock === 0 ? "text-destructive" : p.stock <= 5 ? "text-warning" : "text-foreground"}`}>
-                          {p.stock}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-center">
-                        <Badge variant={p.is_active ? "default" : "outline"} className={p.is_active ? "bg-primary-soft text-primary hover:bg-primary-soft border-0" : ""}>
-                          {p.is_active ? "ativo" : "inativo"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={() => navigate(`/catalogo/${p.id}/editar`)}>
-                              <Pencil className="h-4 w-4 mr-2" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicate(p)}>
-                              <Copy className="h-4 w-4 mr-2" /> Duplicar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleActive(p)}>
-                              <Power className="h-4 w-4 mr-2" /> {p.is_active ? "Desativar" : "Ativar"}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-destructive focus:text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filtered.map((p) => {
+              const qtd = p.estoque?.[0]?.quantidade ?? 0;
+              const min = p.estoque?.[0]?.quantidade_minima ?? 0;
+              const tone = stockTone(qtd, min);
+              const foto = p.fotos?.[0];
+              return (
+                <Card key={p.id} className="p-0 overflow-hidden shadow-soft-sm hover:shadow-soft-md transition-shadow group">
+                  <div className="relative aspect-square bg-muted overflow-hidden">
+                    {foto ? (
+                      <img src={foto} alt={p.nome} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                        <Package className="h-12 w-12 opacity-30" />
+                      </div>
+                    )}
+                    <div className="absolute top-3 left-3 flex gap-1.5">
+                      <Badge className={`${tone.cls} mono text-[10px] border-0`}>{tone.label}</Badge>
+                      {!p.ativo && <Badge variant="outline" className="mono text-[10px] bg-background/90">inativo</Badge>}
+                    </div>
+                    <div className="absolute top-2 right-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-background/90 hover:bg-background shadow-soft-sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onClick={() => navigate(`/catalogo/${p.id}`)}>
+                            <Pencil className="h-4 w-4 mr-2" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/catalogo/novo?duplicar=${p.id}`)}>
+                            <Copy className="h-4 w-4 mr-2" /> Duplicar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleToggle(p)}>
+                            <Power className="h-4 w-4 mr-2" /> {p.ativo ? "Desativar" : "Ativar"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/catalogo/${p.id}`)}
+                    className="block w-full text-left p-5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-display font-semibold leading-tight line-clamp-2">{p.nome}</h3>
+                    </div>
+                    <div className="mono text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
+                      {p.sku || "sem sku"}{p.categoria ? ` · ${p.categoria}` : ""}
+                    </div>
+                    <div className="num text-2xl font-bold text-primary mt-3">{brl(p.preco_venda)}</div>
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
         )}
       </div>
     </AppLayout>

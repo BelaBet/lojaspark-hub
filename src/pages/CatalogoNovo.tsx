@@ -11,23 +11,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { ProductImageInput } from "@/components/ProductImageInput";
+import { ProductPhotosInput } from "@/components/ProductImageInput";
 
 const schema = z.object({
-  name: z.string().trim().min(1, "Nome obrigatório").max(200),
+  nome: z.string().trim().min(1, "Nome obrigatório").max(200),
   sku: z.string().trim().max(80).optional(),
-  barcode: z.string().trim().max(80).optional(),
-  category: z.string().trim().max(80).optional(),
-  description: z.string().trim().max(2000).optional(),
-  price: z.number().min(0),
-  cost: z.number().min(0).optional(),
-  stock: z.number().int().min(0),
-  weight: z.number().min(0).optional(),
-  height: z.number().min(0).optional(),
-  width: z.number().min(0).optional(),
-  depth: z.number().min(0).optional(),
-  image_url: z.string().trim().url().max(500).optional().or(z.literal("")),
+  ean: z.string().trim().max(80).optional(),
+  categoria: z.string().trim().max(80).optional(),
+  marca: z.string().trim().max(80).optional(),
+  fornecedor: z.string().trim().max(120).optional(),
+  ncm: z.string().trim().max(20).optional(),
+  descricao: z.string().trim().max(2000).optional(),
+  preco_venda: z.number().min(0.01, "Preço de venda obrigatório"),
+  preco_custo: z.number().min(0).optional(),
+  preco_atacado: z.number().min(0).optional(),
+  estoque_inicial: z.number().min(0),
+  estoque_minimo: z.number().min(0),
 });
+
+const blank = {
+  nome: "", sku: "", ean: "", categoria: "", marca: "", fornecedor: "", ncm: "",
+  descricao: "", preco_venda: "", preco_custo: "", preco_atacado: "",
+  estoque_inicial: "0", estoque_minimo: "0",
+};
 
 const CatalogoNovo = () => {
   const navigate = useNavigate();
@@ -36,40 +42,40 @@ const CatalogoNovo = () => {
   const search = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const duplicateFrom = search?.get("duplicar") || null;
   const sourceId = id || duplicateFrom;
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(Boolean(sourceId));
-  const [active, setActive] = useState(true);
-  const [form, setForm] = useState({
-    name: "", sku: "", barcode: "", category: "", description: "",
-    price: "", cost: "", stock: "0",
-    weight: "", height: "", width: "", depth: "", image_url: "",
-  });
+  const [ativo, setAtivo] = useState(true);
+  const [fotos, setFotos] = useState<string[]>([]);
+  const [form, setForm] = useState(blank);
 
   useEffect(() => {
     if (!sourceId) return;
     (async () => {
       const { data, error } = await supabase
-        .from("products")
-        .select("*")
+        .from("produtos")
+        .select("*, estoque(quantidade,quantidade_minima)")
         .eq("id", sourceId)
         .maybeSingle();
       if (error) toast.error(error.message);
       if (data) {
-        setActive(isEdit ? data.is_active : true);
+        const est = (data as any).estoque?.[0];
+        setAtivo(isEdit ? data.ativo : true);
+        setFotos(isEdit ? (data.fotos || []) : (data.fotos || []));
         setForm({
-          name: isEdit ? data.name : `${data.name} (cópia)`,
+          nome: isEdit ? data.nome : `${data.nome} (cópia)`,
           sku: isEdit ? data.sku ?? "" : "",
-          barcode: isEdit ? data.barcode ?? "" : "",
-          category: data.category ?? "",
-          description: data.description ?? "",
-          price: data.price?.toString() ?? "",
-          cost: data.cost?.toString() ?? "",
-          stock: isEdit ? (data.stock?.toString() ?? "0") : "0",
-          weight: data.weight?.toString() ?? "",
-          height: data.height?.toString() ?? "",
-          width: data.width?.toString() ?? "",
-          depth: data.depth?.toString() ?? "",
-          image_url: data.image_url ?? "",
+          ean: isEdit ? data.ean ?? "" : "",
+          categoria: data.categoria ?? "",
+          marca: data.marca ?? "",
+          fornecedor: data.fornecedor ?? "",
+          ncm: data.ncm ?? "",
+          descricao: data.descricao ?? "",
+          preco_venda: data.preco_venda?.toString() ?? "",
+          preco_custo: data.preco_custo?.toString() ?? "",
+          preco_atacado: data.preco_atacado?.toString() ?? "",
+          estoque_inicial: isEdit ? (est?.quantidade?.toString() ?? "0") : "0",
+          estoque_minimo: est?.quantidade_minima?.toString() ?? "0",
         });
       }
       setLoading(false);
@@ -79,58 +85,95 @@ const CatalogoNovo = () => {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [k]: e.target.value });
 
-  const margin =
-    form.price && form.cost && Number(form.cost) > 0
-      ? (((Number(form.price) - Number(form.cost)) / Number(form.price)) * 100).toFixed(1)
+  const margem =
+    form.preco_venda && form.preco_custo && Number(form.preco_custo) > 0
+      ? (((Number(form.preco_venda) - Number(form.preco_custo)) / Number(form.preco_venda)) * 100).toFixed(1)
       : null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = schema.safeParse({
-      name: form.name,
+      nome: form.nome,
       sku: form.sku || undefined,
-      barcode: form.barcode || undefined,
-      category: form.category || undefined,
-      description: form.description || undefined,
-      price: Number(form.price || 0),
-      cost: form.cost ? Number(form.cost) : undefined,
-      stock: parseInt(form.stock || "0", 10),
-      weight: form.weight ? Number(form.weight) : undefined,
-      height: form.height ? Number(form.height) : undefined,
-      width: form.width ? Number(form.width) : undefined,
-      depth: form.depth ? Number(form.depth) : undefined,
-      image_url: form.image_url || "",
+      ean: form.ean || undefined,
+      categoria: form.categoria || undefined,
+      marca: form.marca || undefined,
+      fornecedor: form.fornecedor || undefined,
+      ncm: form.ncm || undefined,
+      descricao: form.descricao || undefined,
+      preco_venda: Number(form.preco_venda || 0),
+      preco_custo: form.preco_custo ? Number(form.preco_custo) : undefined,
+      preco_atacado: form.preco_atacado ? Number(form.preco_atacado) : undefined,
+      estoque_inicial: Number(form.estoque_inicial || 0),
+      estoque_minimo: Number(form.estoque_minimo || 0),
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || "Dados inválidos");
       return;
     }
     setSaving(true);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
+    const { data: lojaIdData, error: lojaErr } = await supabase.rpc("get_loja_id");
+    const loja_id = lojaIdData as string | null;
+    if (lojaErr || !loja_id) {
       setSaving(false);
-      toast.error("Sessão expirada");
+      toast.error("Não foi possível identificar sua loja.");
       return;
     }
+
     const payload = {
-      ...parsed.data,
-      image_url: parsed.data.image_url || null,
-      margin: margin ? Number(margin) : null,
-      is_active: active,
-      user_id: userData.user.id,
+      loja_id,
+      nome: parsed.data.nome,
+      sku: parsed.data.sku ?? null,
+      ean: parsed.data.ean ?? null,
+      categoria: parsed.data.categoria ?? null,
+      marca: parsed.data.marca ?? null,
+      fornecedor: parsed.data.fornecedor ?? null,
+      ncm: parsed.data.ncm ?? null,
+      descricao: parsed.data.descricao ?? null,
+      preco_venda: parsed.data.preco_venda,
+      preco_custo: parsed.data.preco_custo ?? 0,
+      preco_atacado: parsed.data.preco_atacado ?? null,
+      fotos,
+      ativo,
     };
-    const { error } = isEdit
-      ? await supabase.from("products").update(payload).eq("id", id!)
-      : await supabase.from("products").insert(payload);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(isEdit ? "Produto atualizado!" : "Produto cadastrado!");
+
+    if (isEdit && id) {
+      const { error } = await supabase.from("produtos").update(payload).eq("id", id);
+      if (error) { setSaving(false); return toast.error(error.message); }
+      // upsert estoque
+      const { error: eErr } = await supabase
+        .from("estoque")
+        .upsert({
+          loja_id,
+          produto_id: id,
+          deposito: "principal",
+          quantidade: parsed.data.estoque_inicial,
+          quantidade_minima: parsed.data.estoque_minimo,
+        }, { onConflict: "loja_id,produto_id,deposito" });
+      if (eErr) { setSaving(false); return toast.error(eErr.message); }
+      setSaving(false);
+      toast.success("Produto atualizado!");
+    } else {
+      const { data: novo, error } = await supabase
+        .from("produtos").insert(payload).select("id").single();
+      if (error || !novo) { setSaving(false); return toast.error(error?.message || "Erro"); }
+      const { error: eErr } = await supabase.from("estoque").insert({
+        loja_id,
+        produto_id: novo.id,
+        deposito: "principal",
+        quantidade: parsed.data.estoque_inicial,
+        quantidade_minima: parsed.data.estoque_minimo,
+      });
+      if (eErr) { setSaving(false); return toast.error(eErr.message); }
+      setSaving(false);
+      toast.success("Produto cadastrado!");
+    }
     navigate("/catalogo");
   };
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto space-y-6">
         <div>
           <Link to="/catalogo" className="mono text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1">
             <ArrowLeft className="h-3 w-3" /> voltar para catálogo
@@ -148,73 +191,77 @@ const CatalogoNovo = () => {
         {loading ? (
           <Card className="p-12 text-center mono text-sm text-muted-foreground">carregando…</Card>
         ) : (
-        <form onSubmit={submit} className="space-y-5">
-          <Card className="p-7 shadow-soft-sm space-y-5">
-            <SectionTitle>Informações básicas</SectionTitle>
-            <Field label="Nome do produto" required>
-              <Input value={form.name} onChange={set("name")} required maxLength={200} placeholder="Ex.: Camiseta básica preta" />
-            </Field>
-            <div className="grid sm:grid-cols-2 gap-5">
-              <Field label="SKU"><Input value={form.sku} onChange={set("sku")} maxLength={80} placeholder="CAM-PRT-001" className="mono" /></Field>
-              <Field label="Código de barras"><Input value={form.barcode} onChange={set("barcode")} maxLength={80} placeholder="7891234567890" className="mono" /></Field>
-            </div>
-            <Field label="Categoria"><Input value={form.category} onChange={set("category")} maxLength={80} placeholder="Vestuário" /></Field>
-            <Field label="Descrição"><Textarea value={form.description} onChange={set("description")} maxLength={2000} rows={3} placeholder="Descreva o produto…" /></Field>
-          </Card>
+          <form onSubmit={submit} className="space-y-5">
+            <div className="grid lg:grid-cols-2 gap-5">
+              {/* Coluna esquerda */}
+              <Card className="p-7 shadow-soft-sm space-y-5">
+                <SectionTitle>Informações básicas</SectionTitle>
+                <Field label="Nome do produto" required>
+                  <Input value={form.nome} onChange={set("nome")} required maxLength={200} placeholder="Ex.: Camiseta básica preta" />
+                </Field>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="SKU"><Input value={form.sku} onChange={set("sku")} maxLength={80} placeholder="CAM-PRT-001" className="mono" /></Field>
+                  <Field label="EAN / código de barras"><Input value={form.ean} onChange={set("ean")} maxLength={80} placeholder="7891234567890" className="mono" /></Field>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Categoria"><Input value={form.categoria} onChange={set("categoria")} maxLength={80} placeholder="Vestuário" /></Field>
+                  <Field label="Marca"><Input value={form.marca} onChange={set("marca")} maxLength={80} placeholder="Acme" /></Field>
+                </div>
+                <Field label="Fornecedor"><Input value={form.fornecedor} onChange={set("fornecedor")} maxLength={120} placeholder="Distribuidora XYZ" /></Field>
+                <Field label="Descrição"><Textarea value={form.descricao} onChange={set("descricao")} maxLength={2000} rows={4} placeholder="Descreva o produto…" /></Field>
+              </Card>
 
-          <Card className="p-7 shadow-soft-sm space-y-5">
-            <SectionTitle>Preço, custo e estoque</SectionTitle>
-            <div className="grid sm:grid-cols-3 gap-5">
-              <Field label="Preço de venda (R$)" required>
-                <Input type="number" step="0.01" min="0" value={form.price} onChange={set("price")} required className="mono" />
-              </Field>
-              <Field label="Custo (R$)">
-                <Input type="number" step="0.01" min="0" value={form.cost} onChange={set("cost")} className="mono" />
-              </Field>
-              <Field label="Estoque inicial" required>
-                <Input type="number" min="0" value={form.stock} onChange={set("stock")} required className="mono" />
-              </Field>
+              {/* Coluna direita */}
+              <Card className="p-7 shadow-soft-sm space-y-5">
+                <SectionTitle>Preços e estoque</SectionTitle>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Preço de venda (R$)" required>
+                    <Input type="number" step="0.01" min="0" value={form.preco_venda} onChange={set("preco_venda")} required className="mono" />
+                  </Field>
+                  <Field label="Preço de custo (R$)">
+                    <Input type="number" step="0.01" min="0" value={form.preco_custo} onChange={set("preco_custo")} className="mono" />
+                  </Field>
+                </div>
+                <Field label="Preço de atacado (R$)">
+                  <Input type="number" step="0.01" min="0" value={form.preco_atacado} onChange={set("preco_atacado")} className="mono" />
+                </Field>
+                {margem !== null && (
+                  <div className="rounded-lg bg-primary-soft px-4 py-3 flex items-center justify-between">
+                    <span className="mono text-[10px] uppercase tracking-widest text-primary">Margem calculada</span>
+                    <span className="num font-bold text-primary text-lg">{margem}%</span>
+                  </div>
+                )}
+                <div className="border-t border-border pt-5 grid sm:grid-cols-2 gap-4">
+                  <Field label={isEdit ? "Estoque atual" : "Estoque inicial"}>
+                    <Input type="number" min="0" step="0.001" value={form.estoque_inicial} onChange={set("estoque_inicial")} className="mono" />
+                  </Field>
+                  <Field label="Estoque mínimo">
+                    <Input type="number" min="0" step="0.001" value={form.estoque_minimo} onChange={set("estoque_minimo")} className="mono" />
+                  </Field>
+                </div>
+                <Field label="NCM"><Input value={form.ncm} onChange={set("ncm")} maxLength={20} placeholder="6109.10.00" className="mono" /></Field>
+              </Card>
             </div>
-            {margin !== null && (
-              <div className="rounded-lg bg-primary-soft px-4 py-3 flex items-center justify-between">
-                <span className="mono text-[10px] uppercase tracking-widest text-primary">Margem calculada</span>
-                <span className="num font-bold text-primary text-lg">{margin}%</span>
+
+            <Card className="p-7 shadow-soft-sm space-y-5">
+              <SectionTitle>Fotos e status</SectionTitle>
+              <ProductPhotosInput value={fotos} onChange={setFotos} max={5} />
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <Label className="text-base">Produto ativo</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Produtos inativos não aparecem na loja.</p>
+                </div>
+                <Switch checked={ativo} onCheckedChange={setAtivo} />
               </div>
-            )}
-          </Card>
+            </Card>
 
-          <Card className="p-7 shadow-soft-sm space-y-5">
-            <SectionTitle>Logística</SectionTitle>
-            <div className="grid sm:grid-cols-4 gap-5">
-              <Field label="Peso (kg)"><Input type="number" step="0.001" min="0" value={form.weight} onChange={set("weight")} className="mono" /></Field>
-              <Field label="Altura (cm)"><Input type="number" step="0.01" min="0" value={form.height} onChange={set("height")} className="mono" /></Field>
-              <Field label="Largura (cm)"><Input type="number" step="0.01" min="0" value={form.width} onChange={set("width")} className="mono" /></Field>
-              <Field label="Profundidade (cm)"><Input type="number" step="0.01" min="0" value={form.depth} onChange={set("depth")} className="mono" /></Field>
+            <div className="flex justify-end gap-3">
+              <Link to="/catalogo"><Button type="button" variant="outline" className="h-11">Cancelar</Button></Link>
+              <Button type="submit" disabled={saving} className="h-11 px-8">
+                {saving ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar produto"}
+              </Button>
             </div>
-          </Card>
-
-          <Card className="p-7 shadow-soft-sm space-y-5">
-            <SectionTitle>Mídia e status</SectionTitle>
-            <ProductImageInput
-              value={form.image_url}
-              onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
-            />
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div>
-                <Label className="text-base">Produto ativo</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Produtos inativos não aparecem na loja.</p>
-              </div>
-              <Switch checked={active} onCheckedChange={setActive} />
-            </div>
-          </Card>
-
-          <div className="flex justify-end gap-3">
-            <Link to="/catalogo"><Button type="button" variant="outline" className="h-11">Cancelar</Button></Link>
-            <Button type="submit" disabled={saving} className="h-11 px-8">
-              {saving ? "Salvando…" : isEdit ? "Salvar alterações" : "Salvar produto"}
-            </Button>
-          </div>
-        </form>
+          </form>
         )}
       </div>
     </AppLayout>
