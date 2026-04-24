@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, LogOut, Store } from "lucide-react";
+import { LayoutDashboard, Package, LogOut, Store, ShoppingCart, History } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +18,8 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "PDV", url: "/vendas", icon: ShoppingCart },
+  { title: "Histórico", url: "/vendas/historico", icon: History },
   { title: "Catálogo", url: "/catalogo", icon: Package },
 ];
 
@@ -61,7 +63,7 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/dashboard"}
+                      end={item.url === "/dashboard" || item.url === "/vendas"}
                       className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                       activeClassName="bg-sidebar-accent text-primary font-semibold"
                     >

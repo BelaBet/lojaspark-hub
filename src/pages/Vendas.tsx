@@ -83,35 +83,31 @@ const Vendas = () => {
   useEffect(() => {
     (async () => {
       setLoadingProdutos(true);
-      const [{ data: prods }, { data: cli }, { data: top }] = await Promise.all([
+
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+
+      const [{ data: prods }, { data: cli }, { data: vendasRecent }] = await Promise.all([
         supabase
           .from("produtos")
           .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade)")
           .eq("ativo", true)
           .order("nome"),
         supabase.from("clientes").select("id,nome,telefone").order("nome"),
-        // Mais vendidos últimos 30 dias via venda_itens
-        supabase.rpc("get_loja_id").then(async ({ data: lojaId }) => {
-          if (!lojaId) return { data: [] as any[] };
-          const since = new Date();
-          since.setDate(since.getDate() - 30);
-          // Fallback: pegar venda_itens recentes e agregar no cliente
-          const { data: vendasRecent } = await supabase
-            .from("vendas")
-            .select("id, venda_itens(produto_id, quantidade)")
-            .eq("loja_id", lojaId)
-            .eq("status", "concluida")
-            .gte("created_at", since.toISOString());
-          return { data: vendasRecent ?? [] };
-        }),
+        supabase
+          .from("vendas")
+          .select("id, venda_itens(produto_id, quantidade)")
+          .eq("status", "concluida")
+          .gte("created_at", since.toISOString()),
       ]);
+
       const lista = (prods as Produto[]) ?? [];
       setProdutos(lista);
       setClientes((cli as Cliente[]) ?? []);
 
       // Calcular top 12 produtos
       const counter = new Map<string, number>();
-      (top.data as any[])?.forEach((v) => {
+      (vendasRecent ?? []).forEach((v: any) => {
         v.venda_itens?.forEach((it: any) => {
           if (!it.produto_id) return;
           counter.set(it.produto_id, (counter.get(it.produto_id) ?? 0) + Number(it.quantidade));
