@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { ArrowLeft, ShoppingBag } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -288,6 +288,14 @@ const VendasHistorico = () => {
                   <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Total</span>
                   <span className="num text-2xl font-bold text-primary">{brl(detalhe.total)}</span>
                 </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <Link to={`/vendas/${detalhe.id}/recibo`} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="h-9">
+                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Ver / imprimir recibo
+                  </Button>
+                </Link>
               </div>
             </div>
           )}

@@ -19,8 +19,6 @@ export type VendaConcluida = {
   troco: number | null;
 };
 
-type Loja = { nome: string; cnpj: string | null; telefone: string | null };
-
 export const VendaSucessoModal = ({
   venda,
   onNovaVenda,
