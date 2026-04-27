@@ -144,6 +144,7 @@ export type Database = {
       lojas: {
         Row: {
           cnpj: string | null
+          config_fiscal: Json | null
           created_at: string
           email: string | null
           id: string
@@ -155,6 +156,7 @@ export type Database = {
         }
         Insert: {
           cnpj?: string | null
+          config_fiscal?: Json | null
           created_at?: string
           email?: string | null
           id?: string
@@ -166,6 +168,7 @@ export type Database = {
         }
         Update: {
           cnpj?: string | null
+          config_fiscal?: Json | null
           created_at?: string
           email?: string | null
           id?: string
@@ -235,11 +238,88 @@ export type Database = {
           },
         ]
       }
+      notas_fiscais: {
+        Row: {
+          cancelada_at: string | null
+          chave_acesso: string | null
+          created_at: string
+          danfe_url: string | null
+          emitida_at: string | null
+          id: string
+          loja_id: string
+          motivo_rejeicao: string | null
+          numero: number | null
+          protocolo: string | null
+          ref_focusnfe: string | null
+          serie: string | null
+          status: string
+          tipo: string
+          venda_id: string | null
+          xml_autorizado: string | null
+        }
+        Insert: {
+          cancelada_at?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          danfe_url?: string | null
+          emitida_at?: string | null
+          id?: string
+          loja_id: string
+          motivo_rejeicao?: string | null
+          numero?: number | null
+          protocolo?: string | null
+          ref_focusnfe?: string | null
+          serie?: string | null
+          status?: string
+          tipo: string
+          venda_id?: string | null
+          xml_autorizado?: string | null
+        }
+        Update: {
+          cancelada_at?: string | null
+          chave_acesso?: string | null
+          created_at?: string
+          danfe_url?: string | null
+          emitida_at?: string | null
+          id?: string
+          loja_id?: string
+          motivo_rejeicao?: string | null
+          numero?: number | null
+          protocolo?: string | null
+          ref_focusnfe?: string | null
+          serie?: string | null
+          status?: string
+          tipo?: string
+          venda_id?: string | null
+          xml_autorizado?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_fiscais_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos: {
         Row: {
+          aliquota_icms: number | null
           ativo: boolean
           categoria: string | null
+          cfop: string | null
           created_at: string
+          cst_cofins: string | null
+          cst_icms: string | null
+          cst_pis: string | null
           descricao: string | null
           ean: string | null
           fornecedor: string | null
@@ -253,12 +333,18 @@ export type Database = {
           preco_custo: number
           preco_venda: number
           sku: string | null
+          unidade_medida: string | null
           updated_at: string
         }
         Insert: {
+          aliquota_icms?: number | null
           ativo?: boolean
           categoria?: string | null
+          cfop?: string | null
           created_at?: string
+          cst_cofins?: string | null
+          cst_icms?: string | null
+          cst_pis?: string | null
           descricao?: string | null
           ean?: string | null
           fornecedor?: string | null
@@ -272,12 +358,18 @@ export type Database = {
           preco_custo?: number
           preco_venda?: number
           sku?: string | null
+          unidade_medida?: string | null
           updated_at?: string
         }
         Update: {
+          aliquota_icms?: number | null
           ativo?: boolean
           categoria?: string | null
+          cfop?: string | null
           created_at?: string
+          cst_cofins?: string | null
+          cst_icms?: string | null
+          cst_pis?: string | null
           descricao?: string | null
           ean?: string | null
           fornecedor?: string | null
@@ -291,6 +383,7 @@ export type Database = {
           preco_custo?: number
           preco_venda?: number
           sku?: string | null
+          unidade_medida?: string | null
           updated_at?: string
         }
         Relationships: [
