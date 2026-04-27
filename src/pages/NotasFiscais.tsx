@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import {
-  Search, FileText, Copy, ExternalLink, RefreshCw, Download,
+  Search, FileText, Copy, ExternalLink, RefreshCw, Download, Eye,
   CheckCircle2, XCircle, Clock, AlertCircle, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -87,6 +88,7 @@ const fmtChave = (chave: string | null) => {
 };
 
 const NotasFiscais = () => {
+  const navigate = useNavigate();
   const [notas, setNotas] = useState<Nota[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipo, setTipo] = useState<Tipo>("todos");
@@ -374,6 +376,15 @@ const NotasFiscais = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => navigate(`/notas-fiscais/${n.id}`)}
+                            title="Ver detalhes"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           {n.danfe_url && (
                             <Button
                               size="icon"
