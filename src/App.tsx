@@ -12,6 +12,7 @@ import VendasHistorico from "./pages/VendasHistorico.tsx";
 import Recibo from "./pages/Recibo.tsx";
 import Estoque from "./pages/Estoque.tsx";
 import NotasFiscais from "./pages/NotasFiscais.tsx";
+import NotaFiscalDetalhe from "./pages/NotaFiscalDetalhe.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/vendas/:id/recibo" element={<Recibo />} />
           <Route path="/estoque" element={<Estoque />} />
           <Route path="/notas-fiscais" element={<NotasFiscais />} />
+          <Route path="/notas-fiscais/:id" element={<NotaFiscalDetalhe />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
