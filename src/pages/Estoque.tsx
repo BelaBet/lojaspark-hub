@@ -502,7 +502,8 @@ const Estoque = () => {
               </div>
             </Card>
 
-            <Card className="overflow-hidden">
+            {/* Desktop: tabela */}
+            <Card className="overflow-hidden hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -565,6 +566,44 @@ const Estoque = () => {
                 </TableBody>
               </Table>
             </Card>
+
+            {/* Mobile: cards de movimentação */}
+            <div className="md:hidden space-y-2">
+              {loadingMov ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))
+              ) : movimentacoes.length === 0 ? (
+                <Card className="p-10 text-center text-muted-foreground">
+                  Nenhuma movimentação no período
+                </Card>
+              ) : (
+                movimentacoes.map((m) => {
+                  const t = tipoInfo(m.tipo);
+                  const Icon = t.icon;
+                  return (
+                    <Card key={m.id} className="p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className={cn("inline-flex items-center gap-1.5 text-xs font-semibold", t.cls)}>
+                            <Icon className="h-3.5 w-3.5" /> {t.label}
+                          </div>
+                          <div className="font-medium mt-1 truncate">{m.produto_nome}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {fmtData(m.created_at)}
+                            {m.motivo ? ` · ${m.motivo}` : ""}
+                          </div>
+                        </div>
+                        <div className={cn("num font-bold text-lg shrink-0", t.cls)}>
+                          {m.tipo === "saida" ? "-" : m.tipo === "entrada" ? "+" : ""}
+                          {num(m.quantidade)}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
