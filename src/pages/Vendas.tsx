@@ -21,6 +21,16 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendaSucessoModal, type VendaConcluida } from "@/components/VendaSucessoModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Produto = {
   id: string;
@@ -29,7 +39,7 @@ type Produto = {
   ean: string | null;
   preco_venda: number;
   fotos: string[] | null;
-  estoque: { quantidade: number }[];
+  estoque: { quantidade: number; quantidade_minima: number | null; deposito: string | null }[];
 };
 
 type CartItem = {
@@ -38,6 +48,8 @@ type CartItem = {
   preco_unit: number;
   quantidade: number;
   estoque_disponivel: number;
+  quantidade_minima: number;
+  forcado_sem_estoque?: boolean;
   removing?: boolean;
 };
 
@@ -61,6 +73,7 @@ const Vendas = () => {
   const [loadingProdutos, setLoadingProdutos] = useState(true);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [scanFlash, setScanFlash] = useState<"success" | "error" | null>(null);
+  const [zeradoDialog, setZeradoDialog] = useState<Produto | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -91,7 +104,7 @@ const Vendas = () => {
       const [{ data: prods }, { data: cli }, { data: vendasRecent }] = await Promise.all([
         supabase
           .from("produtos")
-          .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade)")
+          .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade,quantidade_minima,deposito)")
           .eq("ativo", true)
           .order("nome"),
         supabase.from("clientes").select("id,nome,telefone").order("nome"),
@@ -144,23 +157,53 @@ const Vendas = () => {
     ).slice(0, 50);
   }, [clienteSearch, clientes]);
 
-  const addToCart = (p: Produto) => {
-    const estoqueDisp = p.estoque?.[0]?.quantidade ?? 0;
+  // Lê estoque do depósito principal
+  const getEstoqueInfo = (p: Produto) => {
+    const principal =
+      p.estoque?.find((e) => (e.deposito ?? "principal") === "principal") ?? p.estoque?.[0];
+    return {
+      disponivel: Number(principal?.quantidade ?? 0),
+      minimo: Number(principal?.quantidade_minima ?? 0),
+    };
+  };
+
+  // Adiciona com validação completa de estoque.
+  // Retorna true se foi adicionado, false se bloqueou (zerado pendente de confirmação ou insuficiente).
+  const addToCart = (p: Produto, opts?: { forcar?: boolean }): boolean => {
+    const { disponivel, minimo } = getEstoqueInfo(p);
+
+    // 1) Estoque zerado → abrir modal de bloqueio (a menos que esteja forçado)
+    if (disponivel <= 0 && !opts?.forcar) {
+      setZeradoDialog(p);
+      return false;
+    }
+
+    let bloqueado = false;
+    let baixoToast = false;
+
     setCart((cur) => {
       const exists = cur.find((i) => i.produto_id === p.id);
       if (exists) {
-        if (exists.quantidade >= estoqueDisp) {
-          toast.error(`Estoque insuficiente: ${p.nome}`);
+        if (!opts?.forcar && exists.quantidade >= disponivel) {
+          toast.warning(
+            `Estoque insuficiente — disponível: ${disponivel} unidade(s)`,
+            { duration: 3000 },
+          );
+          bloqueado = true;
           return cur;
         }
         return cur.map((i) =>
-          i.produto_id === p.id ? { ...i, quantidade: i.quantidade + 1 } : i,
+          i.produto_id === p.id
+            ? { ...i, quantidade: i.quantidade + 1, estoque_disponivel: disponivel, quantidade_minima: minimo }
+            : i,
         );
       }
-      if (estoqueDisp <= 0) {
-        toast.error(`Sem estoque: ${p.nome}`);
-        return cur;
+
+      // Estoque baixo: alerta não bloqueante
+      if (!opts?.forcar && disponivel > 0 && minimo > 0 && disponivel <= minimo) {
+        baixoToast = true;
       }
+
       return [
         ...cur,
         {
@@ -168,10 +211,20 @@ const Vendas = () => {
           nome: p.nome,
           preco_unit: Number(p.preco_venda),
           quantidade: 1,
-          estoque_disponivel: estoqueDisp,
+          estoque_disponivel: disponivel,
+          quantidade_minima: minimo,
+          forcado_sem_estoque: opts?.forcar && disponivel <= 0,
         },
       ];
     });
+
+    if (baixoToast) {
+      toast.warning(`⚠ Estoque baixo — restam ${disponivel} unidade(s) de ${p.nome}`, {
+        duration: 3500,
+      });
+    }
+
+    return !bloqueado;
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -180,8 +233,11 @@ const Vendas = () => {
         .map((i) => {
           if (i.produto_id !== id) return i;
           const next = i.quantidade + delta;
-          if (next > i.estoque_disponivel) {
-            toast.error("Estoque insuficiente");
+          if (delta > 0 && !i.forcado_sem_estoque && next > i.estoque_disponivel) {
+            toast.warning(
+              `Estoque insuficiente — disponível: ${i.estoque_disponivel} unidade(s)`,
+              { duration: 3000 },
+            );
             return i;
           }
           return { ...i, quantidade: next };
@@ -237,8 +293,9 @@ const Vendas = () => {
     // 1) Match exato por EAN no cache local
     const exact = produtos.find((p) => p.ean === ean);
     if (exact) {
-      addToCart(exact);
-      handleScanSuccess(exact.nome);
+      const ok = addToCart(exact);
+      if (ok) handleScanSuccess(exact.nome);
+      else flash("error");
       return;
     }
 
@@ -248,7 +305,7 @@ const Vendas = () => {
     if (loja_id) {
       const { data } = await supabase
         .from("produtos")
-        .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade)")
+        .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade,quantidade_minima,deposito)")
         .eq("ean", ean)
         .eq("loja_id", loja_id)
         .eq("ativo", true)
@@ -256,16 +313,18 @@ const Vendas = () => {
       if (data) {
         const prod = data as unknown as Produto;
         setProdutos((cur) => (cur.find((p) => p.id === prod.id) ? cur : [...cur, prod]));
-        addToCart(prod);
-        handleScanSuccess(prod.nome);
+        const ok = addToCart(prod);
+        if (ok) handleScanSuccess(prod.nome);
+        else flash("error");
         return;
       }
     }
 
     // 3) Se houver apenas um resultado textual, adiciona
     if (filtered.length === 1) {
-      addToCart(filtered[0]);
-      handleScanSuccess(filtered[0].nome);
+      const ok = addToCart(filtered[0]);
+      if (ok) handleScanSuccess(filtered[0].nome);
+      else flash("error");
       return;
     }
 
@@ -475,6 +534,25 @@ const Vendas = () => {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium leading-tight line-clamp-2">{i.nome}</p>
+                        {(i.forcado_sem_estoque ||
+                          (i.estoque_disponivel > 0 &&
+                            i.quantidade_minima > 0 &&
+                            i.estoque_disponivel <= i.quantidade_minima)) && (
+                          <div className="mt-1">
+                            {i.forcado_sem_estoque ? (
+                              <Badge variant="destructive" className="text-[10px] h-5">
+                                Sem estoque
+                              </Badge>
+                            ) : (
+                              <Badge
+                                className="text-[10px] h-5 bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+                                variant="outline"
+                              >
+                                Estoque baixo
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 mt-2">
                           <Button
                             type="button"
@@ -492,7 +570,15 @@ const Vendas = () => {
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-7 w-7"
+                            className={cn(
+                              "h-7 w-7",
+                              !i.forcado_sem_estoque &&
+                                i.quantidade >= i.estoque_disponivel &&
+                                "opacity-40 cursor-not-allowed",
+                            )}
+                            disabled={
+                              !i.forcado_sem_estoque && i.quantidade >= i.estoque_disponivel
+                            }
                             onClick={() => updateQty(i.produto_id, 1)}
                           >
                             <Plus className="h-3 w-3" />
@@ -730,6 +816,45 @@ const Vendas = () => {
       </div>
 
       {sucesso && <VendaSucessoModal venda={sucesso} onNovaVenda={novaVenda} />}
+
+      <AlertDialog
+        open={!!zeradoDialog}
+        onOpenChange={(open) => {
+          if (!open) setZeradoDialog(null);
+        }}
+      >
+        <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estoque zerado</AlertDialogTitle>
+            <AlertDialogDescription>
+              {zeradoDialog?.nome} está sem estoque disponível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setZeradoDialog(null);
+                setBusca("");
+                setTimeout(() => searchRef.current?.focus(), 0);
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (zeradoDialog) {
+                  addToCart(zeradoDialog, { forcar: true });
+                  setBusca("");
+                  setTimeout(() => searchRef.current?.focus(), 0);
+                }
+                setZeradoDialog(null);
+              }}
+            >
+              Adicionar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
