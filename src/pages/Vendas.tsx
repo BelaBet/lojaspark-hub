@@ -534,6 +534,25 @@ const Vendas = () => {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium leading-tight line-clamp-2">{i.nome}</p>
+                        {(i.forcado_sem_estoque ||
+                          (i.estoque_disponivel > 0 &&
+                            i.quantidade_minima > 0 &&
+                            i.estoque_disponivel <= i.quantidade_minima)) && (
+                          <div className="mt-1">
+                            {i.forcado_sem_estoque ? (
+                              <Badge variant="destructive" className="text-[10px] h-5">
+                                Sem estoque
+                              </Badge>
+                            ) : (
+                              <Badge
+                                className="text-[10px] h-5 bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+                                variant="outline"
+                              >
+                                Estoque baixo
+                              </Badge>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 mt-2">
                           <Button
                             type="button"
@@ -551,7 +570,15 @@ const Vendas = () => {
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-7 w-7"
+                            className={cn(
+                              "h-7 w-7",
+                              !i.forcado_sem_estoque &&
+                                i.quantidade >= i.estoque_disponivel &&
+                                "opacity-40 cursor-not-allowed",
+                            )}
+                            disabled={
+                              !i.forcado_sem_estoque && i.quantidade >= i.estoque_disponivel
+                            }
                             onClick={() => updateQty(i.produto_id, 1)}
                           >
                             <Plus className="h-3 w-3" />
