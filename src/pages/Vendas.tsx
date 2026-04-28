@@ -477,7 +477,7 @@ const Vendas = () => {
               isMobile && mobileTab !== "busca" && "hidden",
             )}
           >
-            <div className="relative sticky top-[108px] sm:top-[120px] lg:static z-[5] -mx-4 sm:-mx-5 lg:mx-0 px-4 sm:px-5 lg:px-0 pt-1 lg:pt-0 -mt-1 lg:mt-0 bg-card lg:bg-transparent">
+            <div className="relative">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchRef}
