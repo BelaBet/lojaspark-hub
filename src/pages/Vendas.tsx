@@ -816,6 +816,49 @@ const Vendas = () => {
       </div>
 
       {sucesso && <VendaSucessoModal venda={sucesso} onNovaVenda={novaVenda} />}
+
+      <AlertDialog
+        open={!!zeradoDialog}
+        onOpenChange={(open) => {
+          if (!open) setZeradoDialog(null);
+        }}
+      >
+        <AlertDialogContent
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estoque zerado</AlertDialogTitle>
+            <AlertDialogDescription>
+              {zeradoDialog?.nome} está sem estoque disponível.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setZeradoDialog(null);
+                setBusca("");
+                setTimeout(() => searchRef.current?.focus(), 0);
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (zeradoDialog) {
+                  addToCart(zeradoDialog, { forcar: true });
+                  setBusca("");
+                  setTimeout(() => searchRef.current?.focus(), 0);
+                }
+                setZeradoDialog(null);
+              }}
+            >
+              Adicionar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 };
