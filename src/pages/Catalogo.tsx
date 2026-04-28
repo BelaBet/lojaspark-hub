@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ResponsiveModal } from "@/components/ResponsiveModal";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { SlidersHorizontal } from "lucide-react";
 
 type Produto = {
@@ -46,7 +45,6 @@ const Catalogo = () => {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("todas");
   const [status, setStatus] = useState<string>("todos");
-  const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const load = async () => {
