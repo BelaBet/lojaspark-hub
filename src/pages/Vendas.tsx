@@ -60,6 +60,7 @@ const Vendas = () => {
   const [frequentes, setFrequentes] = useState<Produto[]>([]);
   const [loadingProdutos, setLoadingProdutos] = useState(true);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [scanFlash, setScanFlash] = useState<"success" | "error" | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -205,27 +206,70 @@ const Vendas = () => {
   const total = Math.max(0, subtotal - desconto);
   const troco = pagamento === "dinheiro" ? Math.max(0, Number(recebido || 0) - total) : 0;
 
-  // Enter no input adiciona produto (scanner)
-  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter") return;
+  const flash = (kind: "success" | "error") => {
+    setScanFlash(kind);
+    setTimeout(() => setScanFlash(null), 400);
+  };
+
+  const handleScanSuccess = (nome: string) => {
+    flash("success");
+    toast.success(`+ ${nome} adicionado`, { duration: 2000 });
+    setBusca("");
+    setTimeout(() => searchRef.current?.focus(), 0);
+  };
+
+  const handleScanError = (ean: string) => {
+    flash("error");
+    toast.error(`EAN não encontrado: ${ean}`, { duration: 3000 });
+    setTimeout(() => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }, 0);
+  };
+
+  // Compatível com leitoras HID que enviam Enter após o código
+  const onSearchKey = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" && e.key !== "Tab") return;
+    const ean = busca.trim();
+    if (!ean) return;
     e.preventDefault();
-    const s = busca.trim();
-    if (!s) return;
-    // Match exato por EAN/SKU primeiro
-    const exact = produtos.find(
-      (p) => p.ean?.toLowerCase() === s.toLowerCase() || p.sku?.toLowerCase() === s.toLowerCase(),
-    );
+
+    // 1) Match exato por EAN no cache local
+    const exact = produtos.find((p) => p.ean === ean);
     if (exact) {
       addToCart(exact);
-      setBusca("");
+      handleScanSuccess(exact.nome);
       return;
     }
+
+    // 2) Fallback: buscar EAN exato no Supabase (produto pode estar fora do cache)
+    const { data: lojaIdData } = await supabase.rpc("get_loja_id");
+    const loja_id = lojaIdData as string | null;
+    if (loja_id) {
+      const { data } = await supabase
+        .from("produtos")
+        .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade)")
+        .eq("ean", ean)
+        .eq("loja_id", loja_id)
+        .eq("ativo", true)
+        .maybeSingle();
+      if (data) {
+        const prod = data as unknown as Produto;
+        setProdutos((cur) => (cur.find((p) => p.id === prod.id) ? cur : [...cur, prod]));
+        addToCart(prod);
+        handleScanSuccess(prod.nome);
+        return;
+      }
+    }
+
+    // 3) Se houver apenas um resultado textual, adiciona
     if (filtered.length === 1) {
       addToCart(filtered[0]);
-      setBusca("");
+      handleScanSuccess(filtered[0].nome);
       return;
     }
-    toast.error("Produto não encontrado");
+
+    handleScanError(ean);
   };
 
   const finalizar = async () => {
@@ -340,7 +384,13 @@ const Vendas = () => {
                 onChange={(e) => setBusca(e.target.value)}
                 onKeyDown={onSearchKey}
                 placeholder="Buscar por nome, SKU, EAN ou bipar código…"
-                className="pl-9 h-12 text-base mono"
+                className={cn(
+                  "pl-9 h-12 text-base mono transition-colors duration-200",
+                  scanFlash === "success" &&
+                    "border-[#1a6b4a] ring-2 ring-[#1a6b4a]/40 focus-visible:ring-[#1a6b4a]/40",
+                  scanFlash === "error" &&
+                    "border-destructive ring-2 ring-destructive/40 focus-visible:ring-destructive/40",
+                )}
                 autoFocus
               />
             </div>
