@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, LogOut, Store, ShoppingCart, History, Boxes, FileText } from "lucide-react";
+import { LayoutDashboard, Package, LogOut, Store, ShoppingCart, History, Boxes, FileText, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +15,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -22,6 +23,7 @@ const items = [
   { title: "Histórico", url: "/vendas/historico", icon: History },
   { title: "Catálogo", url: "/catalogo", icon: Package },
   { title: "Estoque", url: "/estoque", icon: Boxes },
+  { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Notas Fiscais", url: "/notas-fiscais", icon: FileText },
 ];
 
@@ -62,17 +64,35 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/dashboard" || item.url === "/vendas"}
-                      className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                      activeClassName="bg-sidebar-accent text-primary font-semibold"
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
+                  {collapsed ? (
+                    <Tooltip delayDuration={150}>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to={item.url}
+                            end={item.url === "/dashboard" || item.url === "/vendas"}
+                            className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                            activeClassName="bg-sidebar-accent text-primary font-semibold"
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">{item.title}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/dashboard" || item.url === "/vendas"}
+                        className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-primary font-semibold"
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
