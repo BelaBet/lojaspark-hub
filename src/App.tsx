@@ -11,6 +11,7 @@ import Vendas from "./pages/Vendas.tsx";
 import VendasHistorico from "./pages/VendasHistorico.tsx";
 import Recibo from "./pages/Recibo.tsx";
 import Estoque from "./pages/Estoque.tsx";
+import Clientes from "./pages/Clientes.tsx";
 import NotasFiscais from "./pages/NotasFiscais.tsx";
 import NotaFiscalDetalhe from "./pages/NotaFiscalDetalhe.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/vendas/historico" element={<VendasHistorico />} />
           <Route path="/vendas/:id/recibo" element={<Recibo />} />
           <Route path="/estoque" element={<Estoque />} />
+          <Route path="/clientes" element={<Clientes />} />
           <Route path="/notas-fiscais" element={<NotasFiscais />} />
           <Route path="/notas-fiscais/:id" element={<NotaFiscalDetalhe />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
