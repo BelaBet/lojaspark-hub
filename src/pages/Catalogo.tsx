@@ -131,14 +131,14 @@ const Catalogo = () => {
           </div>
           {/* Filtros desktop/tablet */}
           <Select value={cat} onValueChange={setCat}>
-            <SelectTrigger className="w-[180px] h-10"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectTrigger className="w-[180px] h-10 hidden sm:flex"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas categorias</SelectItem>
               {categorias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-[160px] h-10"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-[160px] h-10 hidden sm:flex"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos status</SelectItem>
               <SelectItem value="ativos">Apenas ativos</SelectItem>
