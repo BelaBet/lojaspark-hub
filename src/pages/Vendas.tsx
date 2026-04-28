@@ -864,6 +864,27 @@ const Vendas = () => {
 
       {sucesso && <VendaSucessoModal venda={sucesso} onNovaVenda={novaVenda} />}
 
+      {/* FAB Ver Carrinho — só mobile, na aba Busca, quando há itens */}
+      {isMobile && mobileTab === "busca" && cart.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setMobileTab("carrinho")}
+          className={cn(
+            "lg:hidden fixed left-4 right-4 z-30 rounded-full shadow-lg",
+            "bg-primary text-primary-foreground font-semibold",
+            "h-14 px-5 flex items-center justify-between gap-3",
+            "transition-transform active:scale-[0.98]",
+          )}
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 72px)" }}
+        >
+          <span className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            <span>Ver carrinho ({cart.length})</span>
+          </span>
+          <span className="num font-bold">{brl(total)}</span>
+        </button>
+      )}
+
       <AlertDialog
         open={!!zeradoDialog}
         onOpenChange={(open) => {
