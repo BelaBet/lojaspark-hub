@@ -23,6 +23,7 @@ import {
 import { EntradaEstoqueDialog } from "@/components/estoque/EntradaEstoqueDialog";
 import { AjusteInventarioDialog } from "@/components/estoque/AjusteInventarioDialog";
 import { cn } from "@/lib/utils";
+import { ChevronDown, Plus as PlusIcon } from "lucide-react";
 
 type LinhaEstoque = {
   produto_id: string;
@@ -93,6 +94,16 @@ const Estoque = () => {
 
   const [entradaOpen, setEntradaOpen] = useState(false);
   const [ajusteOpen, setAjusteOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpanded((cur) => {
+      const n = new Set(cur);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
 
   const carregarEstoque = async () => {
     setLoading(true);
@@ -227,17 +238,21 @@ const Estoque = () => {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Estoque</h1>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Estoque</h1>
             <p className="text-sm text-muted-foreground">
               Controle suas quantidades, entradas e ajustes.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setAjusteOpen(true)}>
-              <ClipboardList className="h-4 w-4 mr-1.5" /> Ajuste de Inventário
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setAjusteOpen(true)} className="flex-1 sm:flex-none min-h-[44px]">
+              <ClipboardList className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Ajuste de Inventário</span>
+              <span className="sm:hidden">Ajuste</span>
             </Button>
-            <Button onClick={() => setEntradaOpen(true)}>
-              <Plus className="h-4 w-4 mr-1.5" /> Entrada de Estoque
+            <Button onClick={() => setEntradaOpen(true)} className="flex-1 sm:flex-none min-h-[44px]">
+              <Plus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Entrada de Estoque</span>
+              <span className="sm:hidden">Entrada</span>
             </Button>
           </div>
         </div>
@@ -328,7 +343,8 @@ const Estoque = () => {
               </div>
             </Card>
 
-            <Card className="overflow-hidden">
+            {/* Desktop / tablet: tabela */}
+            <Card className="overflow-hidden hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -384,6 +400,77 @@ const Estoque = () => {
                 </TableBody>
               </Table>
             </Card>
+
+            {/* Mobile: cards */}
+            <div className="md:hidden space-y-2">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
+                ))
+              ) : filtradas.length === 0 ? (
+                <Card className="p-10 text-center text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  Nenhum produto encontrado
+                </Card>
+              ) : (
+                filtradas.map((l) => {
+                  const s = statusInfo(l.quantidade, l.quantidade_minima);
+                  const isOpen = expanded.has(l.produto_id);
+                  return (
+                    <Card key={l.produto_id} className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(l.produto_id)}
+                        className="w-full flex items-start gap-3 text-left"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold truncate">{l.nome}</span>
+                            <Badge variant="outline" className={cn("text-[10px]", s.cls)}>{s.label}</Badge>
+                          </div>
+                          <div className="num text-lg font-bold mt-1">
+                            {num(l.quantidade)}
+                            <span className="text-xs font-normal text-muted-foreground ml-1">
+                              {l.quantidade === 1 ? "unidade" : "unidades"}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 text-muted-foreground mt-1 transition-transform shrink-0",
+                            isOpen && "rotate-180",
+                          )}
+                        />
+                      </button>
+                      {isOpen && (
+                        <div className="mt-3 pt-3 border-t border-border space-y-1.5 text-xs text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span>SKU</span>
+                            <span className="mono">{l.sku ?? "—"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Mínimo</span>
+                            <span className="num">{num(l.quantidade_minima)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Última movimentação</span>
+                            <span>{fmtData(l.ultima_mov)}</span>
+                          </div>
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-3 w-full min-h-[40px]"
+                        onClick={() => setEntradaOpen(true)}
+                      >
+                        <PlusIcon className="h-3.5 w-3.5 mr-1" /> Entrada
+                      </Button>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="movimentacoes" className="space-y-4">
