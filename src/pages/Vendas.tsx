@@ -823,11 +823,7 @@ const Vendas = () => {
           if (!open) setZeradoDialog(null);
         }}
       >
-        <AlertDialogContent
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
+        <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Estoque zerado</AlertDialogTitle>
             <AlertDialogDescription>
