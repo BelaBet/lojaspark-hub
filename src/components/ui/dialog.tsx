@@ -41,7 +41,7 @@ const DialogContent = React.forwardRef<
         "max-h-[90vh] overflow-y-auto rounded-t-xl",
         "pb-[max(env(safe-area-inset-bottom),1.5rem)]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        "data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full",
         // Tablet+: centered modal
         "sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:max-h-[85vh] sm:pb-6",
         "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
