@@ -17,6 +17,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ResponsiveModal } from "@/components/ResponsiveModal";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { SlidersHorizontal } from "lucide-react";
 
 type Produto = {
   id: string;
@@ -43,6 +46,8 @@ const Catalogo = () => {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("todas");
   const [status, setStatus] = useState<string>("todos");
+  const isMobile = useIsMobile();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -96,30 +101,35 @@ const Catalogo = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
+      <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
+        <header className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Produtos</span>
-            <h1 className="font-display text-4xl font-bold tracking-tight mt-1">Catálogo</h1>
+            <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight mt-1">Catálogo</h1>
             <p className="text-muted-foreground text-sm mt-1">
               {items.length} {items.length === 1 ? "produto" : "produtos"} cadastrados
             </p>
           </div>
           <Link to="/catalogo/novo">
-            <Button className="h-10"><Plus className="h-4 w-4 mr-1" /> Novo produto</Button>
+            <Button className="h-10 min-h-[44px]">
+              <Plus className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Novo produto</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
           </Link>
         </header>
 
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[260px] max-w-md">
+        <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+          <div className="relative flex-1 min-w-0 sm:min-w-[260px] max-w-md">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar por nome, SKU ou EAN…"
-              className="pl-9 h-10"
+              className="pl-9 h-11 text-base"
             />
           </div>
+          {/* Filtros desktop/tablet */}
           <Select value={cat} onValueChange={setCat}>
             <SelectTrigger className="w-[180px] h-10"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
@@ -135,6 +145,20 @@ const Catalogo = () => {
               <SelectItem value="inativos">Apenas inativos</SelectItem>
             </SelectContent>
           </Select>
+          {/* Botão de filtros mobile */}
+          <Button
+            variant="outline"
+            className="h-11 sm:hidden"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal className="h-4 w-4 mr-1" />
+            Filtrar
+            {(cat !== "todas" || status !== "todos") && (
+              <Badge className="ml-1.5 h-4 min-w-4 px-1 bg-primary text-primary-foreground text-[10px]">
+                {(cat !== "todas" ? 1 : 0) + (status !== "todos" ? 1 : 0)}
+              </Badge>
+            )}
+          </Button>
         </div>
 
         {loading ? (
@@ -168,7 +192,7 @@ const Catalogo = () => {
             )}
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
             {filtered.map((p) => {
               const qtd = p.estoque?.[0]?.quantidade ?? 0;
               const min = p.estoque?.[0]?.quantidade_minima ?? 0;
@@ -232,6 +256,43 @@ const Catalogo = () => {
           </div>
         )}
       </div>
+
+      <ResponsiveModal
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        title="Filtros"
+      >
+        <div className="space-y-4 pb-2">
+          <div>
+            <label className="mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">
+              Categoria
+            </label>
+            <Select value={cat} onValueChange={setCat}>
+              <SelectTrigger className="h-11 text-base"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas categorias</SelectItem>
+                {categorias.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">
+              Status
+            </label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-11 text-base"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos status</SelectItem>
+                <SelectItem value="ativos">Apenas ativos</SelectItem>
+                <SelectItem value="inativos">Apenas inativos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button className="w-full h-12" onClick={() => setFiltersOpen(false)}>
+            Aplicar
+          </Button>
+        </div>
+      </ResponsiveModal>
     </AppLayout>
   );
 };
