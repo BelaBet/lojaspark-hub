@@ -201,7 +201,7 @@ const Dashboard = () => {
           <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
             Visão geral
           </span>
-          <h1 className="font-display text-4xl font-bold tracking-tight mt-1">Dashboard</h1>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight mt-1">Dashboard</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Acompanhe vendas, estoque e clientes em tempo real.
           </p>
@@ -226,7 +226,7 @@ const Dashboard = () => {
         )}
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <KpiCard
             label="Vendas hoje"
             value={brl(vendasHoje)}
@@ -262,7 +262,7 @@ const Dashboard = () => {
         </div>
 
         {/* Gráfico */}
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -271,12 +271,12 @@ const Dashboard = () => {
               <h2 className="font-display text-xl font-bold mt-1">Últimos 30 dias</h2>
             </div>
           </div>
-          <div className="h-72">
+          <div className="h-[180px] sm:h-72">
             {loading ? (
               <Skeleton className="h-full w-full" />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chart} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                <AreaChart data={chart} margin={{ top: 10, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
@@ -287,18 +287,18 @@ const Dashboard = () => {
                   <XAxis
                     dataKey="label"
                     stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
+                    fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
-                    minTickGap={24}
+                    minTickGap={32}
                   />
                   <YAxis
                     stroke="hsl(var(--muted-foreground))"
-                    fontSize={11}
+                    fontSize={10}
                     tickLine={false}
                     axisLine={false}
-                    width={70}
+                    width={56}
                     tickFormatter={(v) => brl(Number(v))}
                   />
                   <Tooltip content={<ChartTooltip />} />
@@ -316,9 +316,9 @@ const Dashboard = () => {
         </Card>
 
         {/* Tabelas lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Top produtos */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -364,7 +364,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Últimas vendas */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
