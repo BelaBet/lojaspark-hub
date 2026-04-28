@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendaSucessoModal, type VendaConcluida } from "@/components/VendaSucessoModal";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +75,8 @@ const Vendas = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [scanFlash, setScanFlash] = useState<"success" | "error" | null>(null);
   const [zeradoDialog, setZeradoDialog] = useState<Produto | null>(null);
+  const isMobile = useIsMobile();
+  const [mobileTab, setMobileTab] = useState<"busca" | "carrinho">("busca");
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cliente, setCliente] = useState<Cliente | null>(null);
@@ -418,24 +421,63 @@ const Vendas = () => {
   return (
     <AppLayout>
       <div className="max-w-[1600px] mx-auto">
-        <header className="flex flex-wrap items-end justify-between gap-4 mb-6">
+        <header className="flex flex-wrap items-end justify-between gap-3 mb-4 sm:mb-6">
           <div>
             <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
               Ponto de venda
             </span>
-            <h1 className="font-display text-4xl font-bold tracking-tight mt-1">Nova venda</h1>
+            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight mt-1">
+              Nova venda
+            </h1>
           </div>
           <Link to="/vendas/historico">
-            <Button variant="outline" className="h-10">
-              <History className="h-4 w-4 mr-1" /> Histórico
+            <Button variant="outline" className="h-10 min-h-[44px]">
+              <History className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Histórico</span>
             </Button>
           </Link>
         </header>
 
-        <div className="grid lg:grid-cols-[3fr_2fr] gap-5">
+        {/* Mobile tabs */}
+        {isMobile && (
+          <div className="grid grid-cols-2 mb-3 rounded-lg bg-muted p-1 sticky top-14 z-10">
+            <button
+              type="button"
+              onClick={() => setMobileTab("busca")}
+              className={cn(
+                "min-h-[40px] rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors",
+                mobileTab === "busca" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              <Search className="h-4 w-4" /> Busca
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab("carrinho")}
+              className={cn(
+                "min-h-[40px] rounded-md text-sm font-semibold flex items-center justify-center gap-2 transition-colors",
+                mobileTab === "carrinho" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+              )}
+            >
+              <ShoppingCart className="h-4 w-4" /> Carrinho
+              {cart.length > 0 && (
+                <Badge className="h-5 px-1.5 ml-1 bg-primary text-primary-foreground text-[10px]">
+                  {cart.length}
+                </Badge>
+              )}
+            </button>
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-[3fr_2fr] gap-4 lg:gap-5">
           {/* COLUNA ESQUERDA — Produtos */}
-          <Card className="p-5 shadow-soft-sm space-y-5">
-            <div className="relative">
+          <Card
+            className={cn(
+              "p-4 sm:p-5 shadow-soft-sm space-y-4 sm:space-y-5",
+              isMobile && mobileTab !== "busca" && "hidden",
+            )}
+          >
+            <div className="relative sticky top-[108px] sm:top-[120px] lg:static z-[5] -mx-4 sm:-mx-5 lg:mx-0 px-4 sm:px-5 lg:px-0 pt-1 lg:pt-0 -mt-1 lg:mt-0 bg-card lg:bg-transparent">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchRef}
@@ -506,7 +548,12 @@ const Vendas = () => {
           </Card>
 
           {/* COLUNA DIREITA — Carrinho */}
-          <div className="space-y-4">
+          <div
+            className={cn(
+              "space-y-4",
+              isMobile && mobileTab !== "carrinho" && "hidden",
+            )}
+          >
             <Card className="p-5 shadow-soft-sm">
               <div className="flex items-center gap-2 mb-4">
                 <ShoppingCart className="h-4 w-4 text-primary" />
