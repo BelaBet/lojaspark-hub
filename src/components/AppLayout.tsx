@@ -2,6 +2,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { BottomNav } from "@/components/BottomNav";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 
@@ -9,6 +11,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
@@ -33,19 +36,22 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   if (!session) return <Navigate to="/login" replace />;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={!isMobile}>
       <div className="min-h-screen flex w-full bg-surface">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 sticky top-0 z-10">
-            <SidebarTrigger />
+          <header className="h-14 flex items-center gap-3 border-b border-border bg-background/80 backdrop-blur px-4 sticky top-0 z-20">
+            <SidebarTrigger className="h-10 w-10" aria-label="Abrir menu" />
             <div className="flex-1" />
             <div className="mono text-xs text-muted-foreground hidden sm:block">
               {session.user.email}
             </div>
           </header>
-          <main className="flex-1 p-6 md:p-8">{children}</main>
+          <main className="flex-1 px-4 py-5 sm:px-6 md:px-8 md:py-6 pb-24 lg:pb-8">
+            {children}
+          </main>
         </div>
+        <BottomNav />
       </div>
     </SidebarProvider>
   );
