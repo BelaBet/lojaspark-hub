@@ -144,7 +144,6 @@ export type Database = {
       lojas: {
         Row: {
           cnpj: string | null
-          config_fiscal: Json | null
           created_at: string
           email: string | null
           id: string
@@ -156,7 +155,6 @@ export type Database = {
         }
         Insert: {
           cnpj?: string | null
-          config_fiscal?: Json | null
           created_at?: string
           email?: string | null
           id?: string
@@ -168,7 +166,6 @@ export type Database = {
         }
         Update: {
           cnpj?: string | null
-          config_fiscal?: Json | null
           created_at?: string
           email?: string | null
           id?: string
@@ -176,6 +173,54 @@ export type Database = {
           nome?: string
           plano?: string
           telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lojas_config_fiscal: {
+        Row: {
+          ambiente: string
+          cert_pfx_url: string | null
+          cert_senha: string | null
+          created_at: string
+          csc_id: string | null
+          csc_token: string | null
+          loja_id: string
+          regime_tributario: string
+          serie_nfce: string
+          serie_nfe: string
+          ultimo_numero_nfce: number
+          ultimo_numero_nfe: number
+          updated_at: string
+        }
+        Insert: {
+          ambiente?: string
+          cert_pfx_url?: string | null
+          cert_senha?: string | null
+          created_at?: string
+          csc_id?: string | null
+          csc_token?: string | null
+          loja_id: string
+          regime_tributario?: string
+          serie_nfce?: string
+          serie_nfe?: string
+          ultimo_numero_nfce?: number
+          ultimo_numero_nfe?: number
+          updated_at?: string
+        }
+        Update: {
+          ambiente?: string
+          cert_pfx_url?: string | null
+          cert_senha?: string | null
+          created_at?: string
+          csc_id?: string | null
+          csc_token?: string | null
+          loja_id?: string
+          regime_tributario?: string
+          serie_nfce?: string
+          serie_nfe?: string
+          ultimo_numero_nfce?: number
+          ultimo_numero_nfe?: number
           updated_at?: string
         }
         Relationships: []
@@ -504,7 +549,9 @@ export type Database = {
     }
     Functions: {
       get_loja_id: { Args: never; Returns: string }
-      has_loja_role: { Args: { _role: string }; Returns: boolean }
+      has_loja_role:
+        | { Args: { _loja_id: string; _role: string }; Returns: boolean }
+        | { Args: { _role: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
