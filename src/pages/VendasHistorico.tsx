@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card } from "@/components/ui/card";
@@ -75,7 +76,7 @@ const VendasHistorico = () => {
         query = query.gte("created_at", since.toISOString());
       }
       const { data, error } = await query;
-      if (error) toast.error(error.message);
+      if (error) toast.error(traduzErro(error));
       setVendas((data as unknown as Venda[]) ?? []);
       setLoading(false);
     })();
@@ -100,7 +101,7 @@ const VendasHistorico = () => {
       .eq("id", id)
       .maybeSingle();
     if (error) {
-      toast.error(error.message);
+      toast.error(traduzErro(error));
       setDetalhe(null);
     } else if (data) {
       setDetalhe(data as unknown as Detalhe);

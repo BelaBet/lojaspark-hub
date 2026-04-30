@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +64,7 @@ const Recibo = () => {
           .eq("id", id)
           .maybeSingle(),
       ]);
-      if (error) toast.error(error.message);
+      if (error) toast.error(traduzErro(error));
       if (lojaData) setLoja(lojaData as Loja);
       if (vendaData) setVenda(vendaData as unknown as Venda);
       setLoading(false);

@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -113,7 +114,7 @@ const NotasFiscais = () => {
     }
 
     const { data, error } = await query;
-    if (error) toast.error(error.message);
+    if (error) toast.error(traduzErro(error));
     setNotas((data as unknown as Nota[]) ?? []);
     setLoading(false);
   };
@@ -173,7 +174,7 @@ const NotasFiscais = () => {
     });
     toast.dismiss(nota.id);
     if (error) {
-      toast.error(error.message ?? "Falha ao reemitir");
+      toast.error(traduzErro(error, "Falha ao reemitir"));
       return;
     }
     toast.success("Reenvio iniciado");

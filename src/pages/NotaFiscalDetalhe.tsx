@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -146,7 +147,7 @@ const NotaFiscalDetalhe = () => {
       toast.success("Reemissão enviada");
       await loadNota();
     } catch (e: any) {
-      toast.error("Falha ao reemitir", { description: e?.message });
+      toast.error("Falha ao reemitir", { description: traduzErro(e) });
     } finally {
       setReemitindo(false);
     }
