@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -369,7 +370,7 @@ const Vendas = () => {
       .single();
     if (vErr || !vendaIns) {
       setFinalizando(false);
-      toast.error(vErr?.message ?? "Erro ao registrar venda");
+      toast.error(traduzErro(vErr, "Erro ao registrar venda"));
       return;
     }
 
@@ -383,7 +384,7 @@ const Vendas = () => {
     const { error: iErr } = await supabase.from("venda_itens").insert(itens);
     if (iErr) {
       setFinalizando(false);
-      toast.error(iErr.message);
+      toast.error(traduzErro(iErr));
       return;
     }
 

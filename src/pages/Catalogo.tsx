@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,7 @@ const Catalogo = () => {
       .from("produtos")
       .select("id,nome,sku,ean,categoria,preco_venda,ativo,fotos,estoque(quantidade,quantidade_minima)")
       .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
+    if (error) toast.error(traduzErro(error));
     setItems((data as unknown as Produto[]) ?? []);
     setLoading(false);
   };
@@ -84,7 +85,7 @@ const Catalogo = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir este produto?")) return;
     const { error } = await supabase.from("produtos").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(traduzErro(error));
     toast.success("Produto excluído");
     setItems((it) => it.filter((p) => p.id !== id));
   };
@@ -92,7 +93,7 @@ const Catalogo = () => {
   const handleToggle = async (p: Produto) => {
     const next = !p.ativo;
     const { error } = await supabase.from("produtos").update({ ativo: next }).eq("id", p.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(traduzErro(error));
     setItems((it) => it.map((x) => (x.id === p.id ? { ...x, ativo: next } : x)));
     toast.success(next ? "Produto ativado" : "Produto desativado");
   };

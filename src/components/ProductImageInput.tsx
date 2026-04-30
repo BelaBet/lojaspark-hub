@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export const ProductPhotosInput = ({ value, onChange, max = 5 }: Props) => {
       const path = `${userData.user.id}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { cacheControl: "3600", upsert: false });
       if (error) {
-        toast.error(error.message);
+        toast.error(traduzErro(error));
         continue;
       }
       const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -115,7 +116,7 @@ export const ProductPhotosInput = ({ value, onChange, max = 5 }: Props) => {
       setAiPrompt("");
       toast.success("Imagem gerada!");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao gerar imagem.");
+      toast.error(traduzErro(e, "Falha ao gerar imagem."));
     } finally {
       setGenerating(false);
     }

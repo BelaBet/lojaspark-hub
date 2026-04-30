@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useParams } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
@@ -57,7 +58,7 @@ const CatalogoNovo = () => {
         .select("*, estoque(quantidade,quantidade_minima)")
         .eq("id", sourceId)
         .maybeSingle();
-      if (error) toast.error(error.message);
+      if (error) toast.error(traduzErro(error));
       if (data) {
         const est = (data as any).estoque?.[0];
         setAtivo(isEdit ? data.ativo : true);
@@ -139,7 +140,7 @@ const CatalogoNovo = () => {
 
     if (isEdit && id) {
       const { error } = await supabase.from("produtos").update(payload).eq("id", id);
-      if (error) { setSaving(false); return toast.error(error.message); }
+      if (error) { setSaving(false); return toast.error(traduzErro(error)); }
       // upsert estoque
       const { error: eErr } = await supabase
         .from("estoque")
@@ -150,13 +151,13 @@ const CatalogoNovo = () => {
           quantidade: parsed.data.estoque_inicial,
           quantidade_minima: parsed.data.estoque_minimo,
         }, { onConflict: "loja_id,produto_id,deposito" });
-      if (eErr) { setSaving(false); return toast.error(eErr.message); }
+      if (eErr) { setSaving(false); return toast.error(traduzErro(eErr)); }
       setSaving(false);
       toast.success("Produto atualizado!");
     } else {
       const { data: novo, error } = await supabase
         .from("produtos").insert(payload).select("id").single();
-      if (error || !novo) { setSaving(false); return toast.error(error?.message || "Erro"); }
+      if (error || !novo) { setSaving(false); return toast.error(traduzErro(error, "Erro")); }
       const { error: eErr } = await supabase.from("estoque").insert({
         loja_id,
         produto_id: novo.id,
@@ -164,7 +165,7 @@ const CatalogoNovo = () => {
         quantidade: parsed.data.estoque_inicial,
         quantidade_minima: parsed.data.estoque_minimo,
       });
-      if (eErr) { setSaving(false); return toast.error(eErr.message); }
+      if (eErr) { setSaving(false); return toast.error(traduzErro(eErr)); }
       setSaving(false);
       toast.success("Produto cadastrado!");
     }

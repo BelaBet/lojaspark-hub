@@ -1,3 +1,4 @@
+import { traduzErro } from "@/lib/errors";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ const Login = () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(traduzErro(error));
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -42,7 +43,7 @@ const Login = () => {
       options: { emailRedirectTo: `${window.location.origin}/dashboard` },
     });
     setLoading(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(traduzErro(error));
     else toast.success("Conta criada! Verifique seu e-mail.");
   };
 
