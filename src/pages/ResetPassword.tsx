@@ -13,20 +13,70 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    // Supabase places the recovery token in the URL hash and emits a
-    // PASSWORD_RECOVERY event when the session is bootstrapped.
+    let mounted = true;
+
+    // Listener para o evento clássico (link com hash #access_token...)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setReady(true);
+      if (!mounted) return;
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setReady(true);
+        setChecking(false);
+      }
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => subscription.unsubscribe();
+
+    (async () => {
+      try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+        const errorDesc = url.searchParams.get("error_description") || url.hash.includes("error");
+
+        // Fluxo PKCE/novo: ?code=...
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!mounted) return;
+          if (!error) {
+            setReady(true);
+            // Limpa a URL
+            window.history.replaceState({}, "", "/reset-password");
+          }
+          setChecking(false);
+          return;
+        }
+
+        // Fluxo antigo: #access_token=...&type=recovery (Supabase já processa sozinho)
+        if (window.location.hash.includes("access_token")) {
+          // Aguarda o onAuthStateChange disparar
+          setTimeout(() => {
+            if (mounted) setChecking(false);
+          }, 1500);
+          return;
+        }
+
+        if (errorDesc) {
+          setChecking(false);
+          return;
+        }
+
+        // Sessão já existente (usuário voltou para a página)
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (data.session) setReady(true);
+        setChecking(false);
+      } catch {
+        if (mounted) setChecking(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +114,9 @@ const ResetPassword = () => {
         <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Redefinição de senha</span>
         <h2 className="font-display text-3xl font-bold mt-2 tracking-tight mb-6">Nova senha</h2>
 
-        {!ready ? (
+        {checking ? (
+          <p className="text-sm text-muted-foreground">Validando link…</p>
+        ) : !ready ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Link inválido ou expirado. Solicite um novo e-mail de recuperação.
