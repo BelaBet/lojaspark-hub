@@ -25,6 +25,15 @@ const MAP: Array<[RegExp, string]> = [
   [/jwt expired/i, "Sessão expirada. Faça login novamente."],
   [/refresh token not found/i, "Sessão expirada. Faça login novamente."],
   [/auth session missing/i, "Sessão não encontrada. Faça login novamente."],
+  [/same as the old password/i, "A nova senha deve ser diferente da atual."],
+  [/should be different from the old password/i, "A nova senha deve ser diferente da atual."],
+  [/password is too short/i, "Senha muito curta."],
+  [/password is known to be weak/i, "Esta senha é muito comum. Escolha uma mais segura."],
+  [/code (verifier|challenge)/i, "Link inválido ou expirado. Solicite um novo e-mail de recuperação."],
+  [/invalid (request|grant|code)/i, "Link inválido ou expirado. Solicite um novo e-mail de recuperação."],
+  [/flow state (not found|expired)/i, "Link expirado. Solicite um novo e-mail de recuperação."],
+  [/otp_expired|otp expired/i, "Código expirado. Solicite um novo e-mail de recuperação."],
+  [/user not allowed/i, "Operação não permitida."],
 
   // PostgREST / banco
   [/duplicate key value violates unique constraint/i, "Registro duplicado."],

@@ -44,6 +44,8 @@ const ResetPassword = () => {
             setReady(true);
             // Limpa a URL
             window.history.replaceState({}, "", "/reset-password");
+          } else {
+            toast.error(traduzErro(error));
           }
           setChecking(false);
           return;
@@ -59,6 +61,8 @@ const ResetPassword = () => {
         }
 
         if (errorDesc) {
+          const desc = url.searchParams.get("error_description") || url.hash;
+          toast.error(traduzErro(decodeURIComponent(desc)));
           setChecking(false);
           return;
         }
