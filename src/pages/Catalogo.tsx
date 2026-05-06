@@ -118,6 +118,22 @@ const Catalogo = () => {
     navigate("/vendas");
   };
 
+  const compartilharCatalogo = async () => {
+    const { data, error } = await supabase.rpc("get_loja_id");
+    if (error || !data) return toast.error("Não foi possível obter o link");
+    const url = `${window.location.origin}/c/${data}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Catálogo", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copiado para a área de transferência");
+      }
+    } catch {
+      // usuário cancelou compartilhamento
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-5 sm:space-y-6">
@@ -129,6 +145,11 @@ const Catalogo = () => {
               {items.length} {items.length === 1 ? "produto" : "produtos"} cadastrados
             </p>
           </div>
+          <div className="flex gap-2">
+          <Button variant="outline" className="h-10 min-h-[44px]" onClick={compartilharCatalogo}>
+            <Share2 className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Compartilhar</span>
+          </Button>
           <Link to="/catalogo/novo">
             <Button className="h-10 min-h-[44px]">
               <Plus className="h-4 w-4 sm:mr-1" />
@@ -136,6 +157,7 @@ const Catalogo = () => {
               <span className="sm:hidden">Novo</span>
             </Button>
           </Link>
+          </div>
         </header>
 
         <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
