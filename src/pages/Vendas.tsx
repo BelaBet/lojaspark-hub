@@ -148,7 +148,7 @@ const Vendas = () => {
           localStorage.removeItem("pending_cart_items");
           ids.forEach((id) => {
             const prod = lista.find((p) => p.id === id);
-            if (prod) addToCart(prod, { forcar: true });
+            if (prod) addToCart(prod);
           });
         }
       } catch {
