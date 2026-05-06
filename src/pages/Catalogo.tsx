@@ -12,7 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2, ShoppingCart, Eye } from "lucide-react";
+import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2, ShoppingCart, Eye, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
