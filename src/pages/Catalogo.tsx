@@ -12,7 +12,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2 } from "lucide-react";
+import { Plus, Search, Package, MoreHorizontal, Pencil, Copy, Power, Trash2, ShoppingCart, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -30,6 +30,7 @@ type Produto = {
   preco_venda: number;
   ativo: boolean;
   fotos: string[] | null;
+  descricao?: string | null;
   estoque: { quantidade: number; quantidade_minima: number }[];
 };
 
@@ -47,12 +48,13 @@ const Catalogo = () => {
   const [cat, setCat] = useState<string>("todas");
   const [status, setStatus] = useState<string>("todos");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [preview, setPreview] = useState<Produto | null>(null);
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("produtos")
-      .select("id,nome,sku,ean,categoria,preco_venda,ativo,fotos,estoque(quantidade,quantidade_minima)")
+      .select("id,nome,sku,ean,categoria,preco_venda,ativo,fotos,descricao,estoque(quantidade,quantidade_minima)")
       .order("created_at", { ascending: false });
     if (error) toast.error(traduzErro(error));
     setItems((data as unknown as Produto[]) ?? []);
@@ -96,6 +98,24 @@ const Catalogo = () => {
     if (error) return toast.error(traduzErro(error));
     setItems((it) => it.map((x) => (x.id === p.id ? { ...x, ativo: next } : x)));
     toast.success(next ? "Produto ativado" : "Produto desativado");
+  };
+
+  const adicionarAoCarrinho = (p: Produto) => {
+    if (!p.ativo) {
+      toast.error("Produto inativo não pode ser vendido");
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("pending_cart_items");
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      arr.push(p.id);
+      localStorage.setItem("pending_cart_items", JSON.stringify(arr));
+    } catch {
+      // ignora erros de storage
+    }
+    toast.success(`${p.nome} adicionado ao carrinho`);
+    setPreview(null);
+    navigate("/vendas");
   };
 
   return (
@@ -238,7 +258,7 @@ const Catalogo = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate(`/catalogo/${p.id}`)}
+                    onClick={() => setPreview(p)}
                     className="block w-full text-left p-5"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -291,6 +311,70 @@ const Catalogo = () => {
             Aplicar
           </Button>
         </div>
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={!!preview}
+        onOpenChange={(o) => !o && setPreview(null)}
+        title={preview?.nome}
+        contentClassName="max-w-lg"
+      >
+        {preview && (() => {
+          const qtd = preview.estoque?.[0]?.quantidade ?? 0;
+          const min = preview.estoque?.[0]?.quantidade_minima ?? 0;
+          const tone = stockTone(qtd, min);
+          const foto = preview.fotos?.[0];
+          return (
+            <div className="space-y-4 pb-2">
+              <div className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                {foto ? (
+                  <img src={foto} alt={preview.nome} className="h-full w-full object-cover" />
+                ) : (
+                  <Package className="h-16 w-16 text-muted-foreground opacity-30" />
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={`${tone.cls} mono text-[10px] border-0`}>{tone.label}</Badge>
+                {!preview.ativo && (
+                  <Badge variant="outline" className="mono text-[10px]">inativo</Badge>
+                )}
+                {preview.categoria && (
+                  <Badge variant="outline" className="mono text-[10px]">{preview.categoria}</Badge>
+                )}
+              </div>
+              <div className="num text-3xl font-bold text-primary">{brl(preview.preco_venda)}</div>
+              <div className="mono text-[10px] uppercase tracking-widest text-muted-foreground space-y-1">
+                {preview.sku && <div>SKU: {preview.sku}</div>}
+                {preview.ean && <div>EAN: {preview.ean}</div>}
+              </div>
+              {preview.descricao && (
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {preview.descricao}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="h-12"
+                  onClick={() => {
+                    const id = preview.id;
+                    setPreview(null);
+                    navigate(`/catalogo/${id}`);
+                  }}
+                >
+                  <Pencil className="h-4 w-4 mr-1" /> Editar
+                </Button>
+                <Button
+                  className="h-12"
+                  disabled={!preview.ativo}
+                  onClick={() => adicionarAoCarrinho(preview)}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-1" /> Ao carrinho
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </ResponsiveModal>
     </AppLayout>
   );

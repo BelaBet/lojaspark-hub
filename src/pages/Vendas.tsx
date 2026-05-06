@@ -139,6 +139,21 @@ const Vendas = () => {
       // Se ainda não há vendas, usa primeiros 12 do catálogo
       setFrequentes(topProds.length > 0 ? topProds : lista.slice(0, 12));
       setLoadingProdutos(false);
+
+      // Processa itens pendentes vindos do catálogo
+      try {
+        const raw = localStorage.getItem("pending_cart_items");
+        if (raw) {
+          const ids: string[] = JSON.parse(raw);
+          localStorage.removeItem("pending_cart_items");
+          ids.forEach((id) => {
+            const prod = lista.find((p) => p.id === id);
+            if (prod) addToCart(prod);
+          });
+        }
+      } catch {
+        // ignora
+      }
     })();
   }, []);
 
