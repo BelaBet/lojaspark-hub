@@ -1,1 +1,4 @@
 project_id = "ujopuhxmmykakxdjemlw"
+
+[functions.catalogo-publico]
+verify_jwt = false
