@@ -149,6 +149,7 @@ export type Database = {
           id: string
           logo_url: string | null
           nome: string
+          onboarding_completo: boolean
           plano: string
           telefone: string | null
           updated_at: string
@@ -160,6 +161,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome: string
+          onboarding_completo?: boolean
           plano?: string
           telefone?: string | null
           updated_at?: string
@@ -171,6 +173,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome?: string
+          onboarding_completo?: boolean
           plano?: string
           telefone?: string | null
           updated_at?: string

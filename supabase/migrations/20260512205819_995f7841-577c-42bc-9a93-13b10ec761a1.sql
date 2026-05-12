@@ -1,0 +1,1 @@
+ALTER TABLE public.lojas ADD COLUMN IF NOT EXISTS onboarding_completo boolean NOT NULL DEFAULT false;
