@@ -10,6 +10,7 @@ import { Session } from "@supabase/supabase-js";
 export const AppLayout = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -18,8 +19,17 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       if (!sess) navigate("/login", { replace: true });
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
+      if (session) {
+        const { data: loja } = await supabase
+          .from("lojas")
+          .select("onboarding_completo")
+          .maybeSingle();
+        if (loja && !loja.onboarding_completo) {
+          setNeedsOnboarding(true);
+        }
+      }
       setLoading(false);
     });
     return () => subscription.unsubscribe();
@@ -34,6 +44,7 @@ export const AppLayout = ({ children }: { children: ReactNode }) => {
   }
 
   if (!session) return <Navigate to="/login" replace />;
+  if (needsOnboarding) return <Navigate to="/onboarding" replace />;
 
   return (
     <SidebarProvider defaultOpen={!isMobile}>
