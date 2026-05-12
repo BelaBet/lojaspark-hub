@@ -99,7 +99,14 @@ const Onboarding = () => {
   const salvar = async (pular = false) => {
     if (!lojaId) return;
     setLoading(true);
-    const payload: Record<string, unknown> = { onboarding_completo: true };
+    const payload: {
+      onboarding_completo: boolean;
+      nome?: string;
+      telefone?: string | null;
+      email?: string | null;
+      cnpj?: string | null;
+      logo_url?: string;
+    } = { onboarding_completo: true };
     if (!pular) {
       payload.nome = nome.trim();
       payload.telefone = telefone.replace(/\D/g, "") || null;
