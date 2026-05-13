@@ -120,6 +120,7 @@ const Onboarding = () => {
     setLogoUrl(data.publicUrl);
     setUploadingLogo(false);
     toast.success("Logo enviada com sucesso!");
+  };
 
   const salvar = async (pular = false) => {
     if (!lojaId) return;
