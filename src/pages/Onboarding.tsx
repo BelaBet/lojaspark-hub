@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Store, ArrowRight, ArrowLeft, Check, Upload } from "lucide-react";
+import { Store, ArrowRight, ArrowLeft, Check, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { traduzErro } from "@/lib/errors";
 
@@ -261,22 +261,44 @@ const Onboarding = () => {
               </div>
               <div className="space-y-2">
                 <Label>Logo da loja</Label>
-                <div className="flex items-center gap-3">
-                  <div className="h-16 w-16 rounded-lg border border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
-                    ) : (
-                      <Store className="h-6 w-6 text-muted-foreground" />
-                    )}
+                {logoUrl ? (
+                  <div className="relative rounded-xl border border-border bg-muted/30 p-4 flex flex-col items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl(null)}
+                      className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/90 border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive transition-colors"
+                      title="Remover logo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <img
+                      src={logoUrl}
+                      alt="Prévia da logo"
+                      className="h-24 w-24 object-contain rounded-lg"
+                    />
+                    <p className="text-xs text-muted-foreground">Prévia da sua logo</p>
+                    <label className="w-full">
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                      <span className="inline-flex w-full items-center justify-center gap-2 h-10 px-4 rounded-md border border-border bg-background text-sm font-medium cursor-pointer hover:bg-muted transition-colors">
+                        <Upload className="h-4 w-4" />
+                        {uploadingLogo ? "Enviando…" : "Substituir logo"}
+                      </span>
+                    </label>
                   </div>
-                  <label className="flex-1">
-                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                    <span className="inline-flex w-full items-center justify-center gap-2 h-10 px-4 rounded-md border border-border bg-background text-sm font-medium cursor-pointer hover:bg-muted transition-colors">
-                      <Upload className="h-4 w-4" />
-                      {uploadingLogo ? "Enviando…" : logoUrl ? "Trocar logo" : "Enviar logo"}
-                    </span>
-                  </label>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="h-16 w-16 rounded-lg border border-border bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+                      <Store className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <label className="flex-1">
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                      <span className="inline-flex w-full items-center justify-center gap-2 h-10 px-4 rounded-md border border-border bg-background text-sm font-medium cursor-pointer hover:bg-muted transition-colors">
+                        <Upload className="h-4 w-4" />
+                        {uploadingLogo ? "Enviando…" : "Enviar logo"}
+                      </span>
+                    </label>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">PNG ou JPG, até 2MB.</p>
               </div>
               <div className="flex gap-2 pt-2">
