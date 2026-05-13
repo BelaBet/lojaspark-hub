@@ -24,6 +24,29 @@ const formatCnpj = (v: string) => {
     .replace(/(\d{4})(\d)/, "$1-$2");
 };
 
+function validarCnpj(cnpj: string): { valido: boolean; erro?: string } {
+  const d = cnpj.replace(/\D/g, "");
+  if (!d) return { valido: true };
+  if (d.length !== 14) return { valido: false, erro: "CNPJ incompleto. Digite os 14 números." };
+  if (/^(\d)\1{13}$/.test(d)) return { valido: false, erro: "CNPJ inválido (todos os dígitos iguais)." };
+
+  const calcDig = (base: string, pesos: number[]) =>
+    pesos.reduce((s, p, i) => s + parseInt(base[i]) * p, 0);
+
+  const d1 = calcDig(d.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const r1 = 11 - (d1 % 11);
+  const dig1 = r1 > 9 ? 0 : r1;
+
+  const d2 = calcDig(d.slice(0, 12) + dig1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const r2 = 11 - (d2 % 11);
+  const dig2 = r2 > 9 ? 0 : r2;
+
+  if (dig1 !== parseInt(d[12]) || dig2 !== parseInt(d[13])) {
+    return { valido: false, erro: "CNPJ inválido. Verifique os números digitados." };
+  }
+  return { valido: true };
+}
+
 const Onboarding = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
