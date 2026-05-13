@@ -58,8 +58,8 @@ const Onboarding = () => {
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [cnpj, setCnpj] = useState("");
+  const [cnpjErro, setCnpjErro] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     (async () => {
