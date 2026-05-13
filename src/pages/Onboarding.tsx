@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Store, ArrowRight, ArrowLeft, Check, Upload } from "lucide-react";
+import { Store, ArrowRight, ArrowLeft, Check, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { traduzErro } from "@/lib/errors";
 
