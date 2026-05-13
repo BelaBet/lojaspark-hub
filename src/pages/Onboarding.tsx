@@ -155,7 +155,17 @@ const Onboarding = () => {
       toast.error(traduzErro(error));
       return;
     }
-    toast.success(pular ? "Você pode configurar depois nas configurações." : "Loja configurada com sucesso!");
+    const partes: string[] = [];
+    if (!pular) {
+      if (cnpj.replace(/\D/g, "").length === 14) partes.push("CNPJ salvo");
+      if (logoUrl) partes.push("logo enviada");
+    }
+    const msg = pular
+      ? "Você pode configurar depois nas configurações."
+      : partes.length
+        ? `Loja configurada com sucesso! (${partes.join(" e ")})`
+        : "Loja configurada com sucesso!";
+    toast.success(msg);
     navigate("/dashboard", { replace: true });
   };
 
