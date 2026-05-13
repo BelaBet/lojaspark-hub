@@ -122,6 +122,15 @@ const Onboarding = () => {
 
   const salvar = async (pular = false) => {
     if (!lojaId) return;
+    if (!pular) {
+      const { valido, erro } = validarCnpj(cnpj);
+      if (!valido && erro) {
+        setCnpjErro(erro);
+        toast.error(erro);
+        return;
+      }
+    }
+    setCnpjErro(null);
     setLoading(true);
     const payload: {
       onboarding_completo: boolean;
@@ -225,7 +234,18 @@ const Onboarding = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cnpj">CNPJ</Label>
-                <Input id="cnpj" inputMode="numeric" value={cnpj} onChange={(e) => setCnpj(formatCnpj(e.target.value))} placeholder="00.000.000/0000-00" />
+                <Input
+                  id="cnpj"
+                  inputMode="numeric"
+                  value={cnpj}
+                  onChange={(e) => { setCnpj(formatCnpj(e.target.value)); setCnpjErro(null); }}
+                  placeholder="00.000.000/0000-00"
+                  aria-invalid={!!cnpjErro}
+                  className={cnpjErro ? "border-destructive focus-visible:ring-destructive" : ""}
+                />
+                {cnpjErro && (
+                  <p className="text-sm text-destructive">{cnpjErro}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Logo da loja</Label>
