@@ -112,13 +112,14 @@ const Onboarding = () => {
     const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
     if (error) {
       setUploadingLogo(false);
-      toast.error(traduzErro(error));
+      const msg = traduzErro(error, "Não foi possível enviar a logo. Verifique a conexão e tente novamente.");
+      toast.error(msg);
       return;
     }
     const { data } = supabase.storage.from("product-images").getPublicUrl(path);
     setLogoUrl(data.publicUrl);
     setUploadingLogo(false);
-  };
+    toast.success("Logo enviada com sucesso!");
 
   const salvar = async (pular = false) => {
     if (!lojaId) return;
