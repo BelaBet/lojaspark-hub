@@ -227,11 +227,27 @@ const Onboarding = () => {
                 <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading} className="h-11">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <Button type="button" onClick={() => salvar(false)} disabled={loading || uploadingLogo} className="flex-1 h-11">
-                  {loading ? "Salvando…" : (<>Concluir <Check className="h-4 w-4 ml-1" /></>)}
+                <Button
+                  type="button"
+                  onClick={() => salvar(false)}
+                  disabled={loading || uploadingLogo}
+                  className="flex-1 h-11 shadow-md hover:shadow-lg transition-shadow"
+                >
+                  {loading ? (
+                    "Salvando…"
+                  ) : (
+                    <>
+                      Finalizar configuração <Check className="h-4 w-4 ml-1" />
+                    </>
+                  )}
                 </Button>
               </div>
-              <button type="button" onClick={() => salvar(true)} disabled={loading} className="w-full text-sm text-muted-foreground hover:text-primary transition-colors">
+              <button
+                type="button"
+                onClick={() => salvar(true)}
+                disabled={loading}
+                className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
                 Pular por enquanto
               </button>
             </div>
