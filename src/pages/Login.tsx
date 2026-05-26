@@ -88,7 +88,7 @@ const Login = () => {
           <div className="h-11 w-11 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur">
             <Store className="h-6 w-6" />
           </div>
-          <span className="font-display text-2xl font-bold tracking-tight">LojaHub</span>
+          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
         </div>
         <div className="relative max-w-md">
           <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-tight">
@@ -111,7 +111,7 @@ const Login = () => {
             ))}
           </div>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50">© LojaHub · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50">© PDV Híbrida · 2026</div>
       </aside>
 
       {/* Auth form */}

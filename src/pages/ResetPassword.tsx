@@ -112,7 +112,7 @@ const ResetPassword = () => {
           <div className="h-11 w-11 rounded-xl bg-primary flex items-center justify-center">
             <Store className="h-6 w-6 text-primary-foreground" />
           </div>
-          <span className="font-display text-2xl font-bold tracking-tight">LojaHub</span>
+          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
         </div>
 
         <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Redefinição de senha</span>
