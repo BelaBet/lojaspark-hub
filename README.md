@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# LojaHub
 
-TODO: Document your project here
+Aplicação de gestão para lojistas: catálogo, estoque, pedidos e notas fiscais em um único painel.
