@@ -185,7 +185,7 @@ const Onboarding = () => {
           <div className="h-11 w-11 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur">
             <Store className="h-6 w-6" />
           </div>
-          <span className="font-display text-2xl font-bold tracking-tight">LojaHub</span>
+          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
         </div>
         <div className="relative max-w-md mt-8 lg:mt-0">
           <span className="mono text-[10px] uppercase tracking-widest text-primary-foreground/60">
@@ -198,7 +198,7 @@ const Onboarding = () => {
             Em menos de 2 minutos seu painel está pronto para vender. Você pode editar tudo depois.
           </p>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© LojaHub · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© PDV Híbrida · 2026</div>
       </aside>
 
       <main className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-surface">

@@ -46,7 +46,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col leading-tight">
-              <span className="font-display text-lg font-bold tracking-tight">LojaHub</span>
+              <span className="font-display text-lg font-bold tracking-tight">PDV Híbrida</span>
               <span className="mono text-[10px] text-muted-foreground">v1.0</span>
             </div>
           )}
