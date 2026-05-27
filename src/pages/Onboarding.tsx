@@ -190,7 +190,7 @@ const Onboarding = () => {
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background">
       <aside className="lg:w-2/5 bg-primary text-primary-foreground p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
-        <BrandLogo size={44} className="relative" />
+        <BrandLogo width={80} height={60} className="relative" />
         <div className="relative max-w-md mt-8 lg:mt-0">
           <span className="mono text-[10px] uppercase tracking-widest text-primary-foreground/60">
             Bem-vindo
