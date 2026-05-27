@@ -2,63 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* PayTicket — Design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    /* PDV Híbrida — Light theme */
-    --background: 0 0% 100%;            /* #FFFFFF */
-    --foreground: 60 17% 9%;            /* #1a1a14 */
+    /* PayTicket — Light theme (roxo + mostarda) */
+    --background: 0 0% 100%;
+    --foreground: 244 25% 12%;
 
-    --surface: 45 23% 97%;              /* #F7F6F2 cinza levíssimo */
-    --surface-foreground: 60 17% 9%;
+    --surface: 244 30% 98%;
+    --surface-foreground: 244 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 60 17% 9%;
+    --card-foreground: 244 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 60 17% 9%;
+    --popover-foreground: 244 25% 12%;
 
-    /* Verde escuro de ação #1a6b4a */
-    --primary: 154 61% 26%;
+    /* Roxo profundo da marca (~#3F3C7A) */
+    --primary: 244 34% 36%;
     --primary-foreground: 0 0% 100%;
-    --primary-soft: 154 40% 94%;
+    --primary-soft: 244 40% 95%;
 
-    --secondary: 45 23% 97%;
-    --secondary-foreground: 60 17% 9%;
+    --secondary: 244 30% 97%;
+    --secondary-foreground: 244 25% 12%;
 
-    --muted: 45 18% 95%;
-    --muted-foreground: 60 6% 38%;
+    --muted: 244 20% 96%;
+    --muted-foreground: 244 10% 40%;
 
-    --accent: 154 40% 94%;
-    --accent-foreground: 154 61% 22%;
+    /* Mostarda da marca (~#D8A14A) */
+    --accent: 36 64% 57%;
+    --accent-foreground: 244 25% 12%;
 
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 154 61% 26%;
-    --warning: 35 90% 50%;
+    --success: 154 61% 30%;
+    --warning: 36 90% 50%;
 
-    --border: 45 12% 89%;
-    --input: 45 12% 89%;
-    --ring: 154 61% 26%;
+    --border: 244 15% 90%;
+    --input: 244 15% 90%;
+    --ring: 244 34% 36%;
 
-    --radius: 0.75rem;                  /* 12px */
+    --radius: 0.75rem;
 
-    --shadow-sm: 0 1px 2px 0 hsl(60 17% 9% / 0.04);
-    --shadow-md: 0 4px 16px -4px hsl(60 17% 9% / 0.06), 0 2px 4px -2px hsl(60 17% 9% / 0.04);
-    --shadow-lg: 0 12px 40px -8px hsl(60 17% 9% / 0.08);
+    --shadow-sm: 0 1px 2px 0 hsl(244 25% 12% / 0.04);
+    --shadow-md: 0 4px 16px -4px hsl(244 25% 12% / 0.06), 0 2px 4px -2px hsl(244 25% 12% / 0.04);
+    --shadow-lg: 0 12px 40px -8px hsl(244 25% 12% / 0.10);
 
-    --sidebar-background: 45 23% 97%;
-    --sidebar-foreground: 60 17% 9%;
-    --sidebar-primary: 154 61% 26%;
+    --sidebar-background: 244 30% 98%;
+    --sidebar-foreground: 244 25% 12%;
+    --sidebar-primary: 244 34% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 100%;
-    --sidebar-accent-foreground: 154 61% 22%;
-    --sidebar-border: 45 12% 89%;
-    --sidebar-ring: 154 61% 26%;
+    --sidebar-accent-foreground: 244 34% 36%;
+    --sidebar-border: 244 15% 90%;
+    --sidebar-ring: 244 34% 36%;
   }
 
   .dark {

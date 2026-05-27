@@ -144,6 +144,8 @@ export type Database = {
       lojas: {
         Row: {
           cnpj: string | null
+          cor_primaria: string | null
+          cor_secundaria: string | null
           created_at: string
           email: string | null
           id: string
@@ -156,6 +158,8 @@ export type Database = {
         }
         Insert: {
           cnpj?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -168,6 +172,8 @@ export type Database = {
         }
         Update: {
           cnpj?: string | null
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
           created_at?: string
           email?: string | null
           id?: string
@@ -444,6 +450,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       venda_itens: {
         Row: {
           desconto: number
@@ -552,12 +579,20 @@ export type Database = {
     }
     Functions: {
       get_loja_id: { Args: never; Returns: string }
+      has_app_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_loja_role:
         | { Args: { _loja_id: string; _role: string }; Returns: boolean }
         | { Args: { _role: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -684,6 +719,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin"],
+    },
   },
 } as const

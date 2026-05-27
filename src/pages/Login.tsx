@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Store, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import BrandLogo from "@/components/BrandLogo";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -84,19 +85,14 @@ const Login = () => {
       {/* Brand panel */}
       <aside className="lg:w-1/2 bg-primary text-primary-foreground p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
-        <div className="relative flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur">
-            <Store className="h-6 w-6" />
-          </div>
-          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
-        </div>
+        <BrandLogo size={44} className="relative" />
         <div className="relative max-w-md">
           <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-tight">
-            Sua loja, <br />
+            Sua instituição, <br />
             sob controle.
           </h1>
           <p className="mt-5 text-primary-foreground/80 text-base leading-relaxed">
-            Catálogo, estoque e pedidos em um único painel. Simples como um caderno, poderoso como um ERP.
+            Plataforma multi-instituições com catálogo, estoque, pedidos e personalização visual completa.
           </p>
           <div className="mt-10 grid grid-cols-3 gap-4">
             {[
@@ -111,14 +107,14 @@ const Login = () => {
             ))}
           </div>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50">© PDV Híbrida · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50">© PayTicket · 2026</div>
       </aside>
 
       {/* Auth form */}
       <main className="lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-surface">
         <Card className="w-full max-w-md p-8 shadow-soft-md border-border">
           <div className="mb-6">
-            <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Acesso de lojista</span>
+            <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Acesso institucional</span>
             <h2 className="font-display text-3xl font-bold mt-2 tracking-tight">Bem-vindo</h2>
           </div>
 

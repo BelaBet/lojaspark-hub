@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Store, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { traduzErro } from "@/lib/errors";
+import BrandLogo from "@/components/BrandLogo";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -108,11 +109,8 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-6 bg-surface">
       <Card className="w-full max-w-md p-8 shadow-soft-md border-border">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-11 w-11 rounded-xl bg-primary flex items-center justify-center">
-            <Store className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
+        <div className="mb-6">
+          <BrandLogo size={44} />
         </div>
 
         <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Redefinição de senha</span>
