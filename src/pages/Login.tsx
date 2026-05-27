@@ -85,7 +85,7 @@ const Login = () => {
       {/* Brand panel */}
       <aside className="lg:w-1/2 bg-primary text-primary-foreground p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
-        <BrandLogo size={64} className="relative" />
+        <BrandLogo size={80} className="relative" />
         <div className="relative max-w-md">
           <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-tight">
             Sua instituição, <br />
@@ -107,7 +107,7 @@ const Login = () => {
             ))}
           </div>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50">© PayTicket · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50">© 2026</div>
       </aside>
 
       {/* Auth form */}

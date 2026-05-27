@@ -78,7 +78,7 @@ const Admin = () => {
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight mt-1">Instituições</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Acesso global a todas as instituições cadastradas no PayTicket.
+              Acesso global a todas as instituições cadastradas no sistema.
             </p>
           </div>
           <div className="num text-sm text-muted-foreground">

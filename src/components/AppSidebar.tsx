@@ -50,8 +50,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-3">
-          <BrandLogo size={48} showName={!collapsed} nameClassName="text-lg" />
+        <div className="flex items-center justify-center px-2 py-3">
+          <BrandLogo size={56} />
         </div>
       </SidebarHeader>
 

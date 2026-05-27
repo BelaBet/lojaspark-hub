@@ -202,7 +202,7 @@ const Onboarding = () => {
             Em menos de 2 minutos seu painel está pronto, com sua identidade visual aplicada.
           </p>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© PayTicket · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© 2026</div>
       </aside>
 
       <main className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-surface">
