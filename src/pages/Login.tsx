@@ -85,7 +85,7 @@ const Login = () => {
       {/* Brand panel */}
       <aside className="lg:w-1/2 bg-primary text-primary-foreground p-8 lg:p-16 flex flex-col justify-between relative overflow-hidden">
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
-        <BrandLogo size={80} className="relative" />
+        <BrandLogo width={140} height={100} className="relative" />
         <div className="relative max-w-md">
           <h1 className="font-display text-4xl lg:text-5xl font-bold leading-[1.05] tracking-tight">
             Sua instituição, <br />

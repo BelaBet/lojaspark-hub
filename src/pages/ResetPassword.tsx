@@ -110,7 +110,7 @@ const ResetPassword = () => {
     <div className="min-h-screen w-full flex items-center justify-center p-6 bg-surface">
       <Card className="w-full max-w-md p-8 shadow-soft-md border-border">
         <div className="mb-6">
-          <BrandLogo size={44} />
+          <BrandLogo width={100} height={72} />
         </div>
 
         <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">Redefinição de senha</span>
