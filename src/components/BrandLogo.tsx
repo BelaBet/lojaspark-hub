@@ -7,7 +7,7 @@ type Props = {
   nameClassName?: string;
 };
 
-export const BrandLogo = ({ size = 44, className = "", showName = true, nameClassName = "" }: Props) => (
+export const BrandLogo = ({ size = 56, className = "", showName = true, nameClassName = "" }: Props) => (
   <div className={`flex items-center gap-3 ${className}`}>
     <img
       src={logo}
