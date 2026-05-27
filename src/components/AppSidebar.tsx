@@ -1,7 +1,9 @@
-import { LayoutDashboard, Package, LogOut, Store, ShoppingCart, History, Boxes, FileText, Users } from "lucide-react";
+import { LayoutDashboard, Package, LogOut, ShoppingCart, History, Boxes, FileText, Users, Shield } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import BrandLogo from "@/components/BrandLogo";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +33,14 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const navigate = useNavigate();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.rpc("is_super_admin");
+      if (data === true) setIsSuperAdmin(true);
+    })();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -41,15 +51,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Store className="h-5 w-5" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col leading-tight">
-              <span className="font-display text-lg font-bold tracking-tight">PDV Híbrida</span>
-              <span className="mono text-[10px] text-muted-foreground">v1.0</span>
-            </div>
-          )}
+          <BrandLogo size={36} showName={!collapsed} nameClassName="text-lg" />
         </div>
       </SidebarHeader>
 
@@ -95,6 +97,37 @@ export function AppSidebar() {
                   )}
                 </SidebarMenuItem>
               ))}
+              {isSuperAdmin && (
+                <SidebarMenuItem>
+                  {collapsed ? (
+                    <Tooltip delayDuration={150}>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton asChild>
+                          <NavLink
+                            to="/admin"
+                            className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                            activeClassName="bg-sidebar-accent text-primary font-semibold"
+                          >
+                            <Shield className="h-4 w-4 shrink-0" />
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">Super Admin</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <SidebarMenuButton asChild>
+                      <NavLink
+                        to="/admin"
+                        className="rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                        activeClassName="bg-sidebar-accent text-primary font-semibold"
+                      >
+                        <Shield className="h-4 w-4 shrink-0" />
+                        <span>Super Admin</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  )}
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
