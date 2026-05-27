@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Store, ArrowRight, ArrowLeft, Check, Upload, X } from "lucide-react";
+import { Store, ArrowRight, ArrowLeft, Check, Upload, X, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { traduzErro } from "@/lib/errors";
+import BrandLogo from "@/components/BrandLogo";
 
 const formatTelefone = (v: string) => {
   const d = v.replace(/\D/g, "").slice(0, 11);
@@ -61,6 +62,8 @@ const Onboarding = () => {
   const [cnpjErro, setCnpjErro] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [corPrimaria, setCorPrimaria] = useState<string>("#3F3C7A");
+  const [corSecundaria, setCorSecundaria] = useState<string>("#D8A14A");
 
   useEffect(() => {
     (async () => {
@@ -72,7 +75,7 @@ const Onboarding = () => {
       setEmail(sess.session.user.email ?? "");
       const { data: loja } = await supabase
         .from("lojas")
-        .select("id, nome, telefone, email, cnpj, logo_url, onboarding_completo")
+        .select("id, nome, telefone, email, cnpj, logo_url, cor_primaria, cor_secundaria, onboarding_completo")
         .maybeSingle();
       if (loja) {
         setLojaId(loja.id);
@@ -85,6 +88,8 @@ const Onboarding = () => {
         if (loja.email) setEmail(loja.email);
         if (loja.cnpj) setCnpj(formatCnpj(loja.cnpj));
         if (loja.logo_url) setLogoUrl(loja.logo_url);
+        if (loja.cor_primaria) setCorPrimaria(loja.cor_primaria);
+        if (loja.cor_secundaria) setCorSecundaria(loja.cor_secundaria);
       }
       setCarregando(false);
     })();
@@ -141,6 +146,8 @@ const Onboarding = () => {
       email?: string | null;
       cnpj?: string | null;
       logo_url?: string;
+      cor_primaria?: string;
+      cor_secundaria?: string;
     } = { onboarding_completo: true };
     if (!pular) {
       payload.nome = nome.trim();
@@ -148,6 +155,8 @@ const Onboarding = () => {
       payload.email = email.trim() || null;
       payload.cnpj = cnpj.replace(/\D/g, "") || null;
       if (logoUrl) payload.logo_url = logoUrl;
+      payload.cor_primaria = corPrimaria;
+      payload.cor_secundaria = corSecundaria;
     }
     const { error } = await supabase.from("lojas").update(payload).eq("id", lojaId);
     setLoading(false);
@@ -181,24 +190,19 @@ const Onboarding = () => {
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background">
       <aside className="lg:w-2/5 bg-primary text-primary-foreground p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-primary-foreground/5 blur-3xl" />
-        <div className="relative flex items-center gap-3">
-          <div className="h-11 w-11 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur">
-            <Store className="h-6 w-6" />
-          </div>
-          <span className="font-display text-2xl font-bold tracking-tight">PDV Híbrida</span>
-        </div>
+        <BrandLogo size={44} className="relative" />
         <div className="relative max-w-md mt-8 lg:mt-0">
           <span className="mono text-[10px] uppercase tracking-widest text-primary-foreground/60">
             Bem-vindo
           </span>
           <h1 className="font-display text-3xl lg:text-4xl font-bold leading-[1.1] tracking-tight mt-3">
-            Vamos configurar <br />sua loja.
+            Vamos configurar <br />sua instituição.
           </h1>
           <p className="mt-4 text-primary-foreground/80 text-sm leading-relaxed">
-            Em menos de 2 minutos seu painel está pronto para vender. Você pode editar tudo depois.
+            Em menos de 2 minutos seu painel está pronto, com sua identidade visual aplicada.
           </p>
         </div>
-        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© PDV Híbrida · 2026</div>
+        <div className="relative mono text-xs text-primary-foreground/50 hidden lg:block">© PayTicket · 2026</div>
       </aside>
 
       <main className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-surface">
@@ -216,12 +220,12 @@ const Onboarding = () => {
           {step === 1 ? (
             <form onSubmit={irParaPasso2} className="space-y-4">
               <div>
-                <h2 className="font-display text-2xl font-bold tracking-tight">Identidade da loja</h2>
-                <p className="text-sm text-muted-foreground mt-1">Como sua loja se apresenta aos clientes.</p>
+                <h2 className="font-display text-2xl font-bold tracking-tight">Identidade da instituição</h2>
+                <p className="text-sm text-muted-foreground mt-1">Como sua instituição se apresenta aos clientes.</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nome">Nome da loja *</Label>
-                <Input id="nome" required maxLength={80} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Boutique da Ana" />
+                <Label htmlFor="nome">Nome da instituição *</Label>
+                <Input id="nome" required maxLength={80} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Instituto Pay" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tel">Telefone / WhatsApp</Label>
@@ -300,6 +304,66 @@ const Onboarding = () => {
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">PNG ou JPG, até 2MB.</p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <Palette className="h-4 w-4 text-muted-foreground" />
+                  <Label className="m-0">Cores da instituição</Label>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">Aplicadas no seu catálogo público.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cor-pri" className="text-xs text-muted-foreground">Primária</Label>
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2 h-10">
+                      <input
+                        id="cor-pri"
+                        type="color"
+                        value={corPrimaria}
+                        onChange={(e) => setCorPrimaria(e.target.value)}
+                        className="h-7 w-9 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input
+                        type="text"
+                        value={corPrimaria}
+                        onChange={(e) => setCorPrimaria(e.target.value)}
+                        maxLength={7}
+                        className="flex-1 bg-transparent text-sm mono outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cor-sec" className="text-xs text-muted-foreground">Secundária</Label>
+                    <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2 h-10">
+                      <input
+                        id="cor-sec"
+                        type="color"
+                        value={corSecundaria}
+                        onChange={(e) => setCorSecundaria(e.target.value)}
+                        className="h-7 w-9 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <input
+                        type="text"
+                        value={corSecundaria}
+                        onChange={(e) => setCorSecundaria(e.target.value)}
+                        maxLength={7}
+                        className="flex-1 bg-transparent text-sm mono outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="rounded-md p-3 text-xs flex items-center justify-between border border-border"
+                  style={{ background: corPrimaria, color: "#fff" }}
+                >
+                  <span>Prévia da identidade</span>
+                  <span
+                    className="px-2 py-1 rounded text-[10px] font-semibold"
+                    style={{ background: corSecundaria, color: "#111" }}
+                  >
+                    botão
+                  </span>
+                </div>
               </div>
               <div className="flex gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading} className="h-11">

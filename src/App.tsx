@@ -17,6 +17,7 @@ import Clientes from "./pages/Clientes.tsx";
 import NotasFiscais from "./pages/NotasFiscais.tsx";
 import NotaFiscalDetalhe from "./pages/NotaFiscalDetalhe.tsx";
 import CatalogoPublico from "./pages/CatalogoPublico.tsx";
+import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/notas-fiscais" element={<NotasFiscais />} />
           <Route path="/notas-fiscais/:id" element={<NotaFiscalDetalhe />} />
           <Route path="/c/:lojaId" element={<CatalogoPublico />} />
+          <Route path="/admin" element={<Admin />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -25,6 +25,8 @@ type Loja = {
   nome: string;
   logo_url: string | null;
   telefone: string | null;
+  cor_primaria: string | null;
+  cor_secundaria: string | null;
 };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -89,34 +91,42 @@ const CatalogoPublico = () => {
     );
   }
 
+  const cores = {
+    "--brand-primary": loja?.cor_primaria || "#3F3C7A",
+    "--brand-secondary": loja?.cor_secundaria || "#D8A14A",
+  } as React.CSSProperties;
+
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-10">
+    <div className="min-h-screen bg-background" style={cores}>
+      <header
+        className="border-b sticky top-0 z-10 text-white"
+        style={{ background: "var(--brand-primary)" }}
+      >
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
           {loja?.logo_url ? (
-            <img src={loja.logo_url} alt={loja.nome} className="h-10 w-10 rounded-lg object-cover" />
+            <img src={loja.logo_url} alt={loja.nome} className="h-10 w-10 rounded-lg object-cover bg-white/10" />
           ) : (
-            <div className="h-10 w-10 rounded-lg bg-primary-soft flex items-center justify-center text-primary">
+            <div className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center text-white">
               <Store className="h-5 w-5" />
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="font-display text-lg font-bold truncate">
+            <h1 className="font-display text-lg font-bold truncate text-white">
               {loading ? <Skeleton className="h-5 w-40" /> : loja?.nome}
             </h1>
-            <p className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <p className="mono text-[10px] uppercase tracking-widest text-white/70">
               Catálogo
             </p>
           </div>
         </div>
         <div className="max-w-6xl mx-auto px-4 pb-4">
           <div className="relative">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-foreground/50" />
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar produtos…"
-              className="pl-9 h-11 text-base"
+              className="pl-9 h-11 text-base bg-white text-foreground"
             />
           </div>
         </div>
@@ -172,7 +182,12 @@ const CatalogoPublico = () => {
                         {p.categoria}
                       </div>
                     )}
-                    <div className="num text-xl font-bold text-primary mt-2">{brl(p.preco_venda)}</div>
+                    <div
+                      className="num text-xl font-bold mt-2"
+                      style={{ color: "var(--brand-primary)" }}
+                    >
+                      {brl(p.preco_venda)}
+                    </div>
                   </div>
                 </Card>
               );
@@ -199,7 +214,12 @@ const CatalogoPublico = () => {
             {preview.categoria && (
               <Badge variant="outline" className="mono text-[10px]">{preview.categoria}</Badge>
             )}
-            <div className="num text-3xl font-bold text-primary">{brl(preview.preco_venda)}</div>
+            <div
+              className="num text-3xl font-bold"
+              style={{ color: "var(--brand-primary)" }}
+            >
+              {brl(preview.preco_venda)}
+            </div>
             {preview.descricao && (
               <p className="text-sm text-muted-foreground whitespace-pre-line">{preview.descricao}</p>
             )}
@@ -211,7 +231,10 @@ const CatalogoPublico = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Button className="w-full h-12 bg-[#25D366] hover:bg-[#20bd5a] text-white">
+                <Button
+                  className="w-full h-12 text-white hover:opacity-90"
+                  style={{ background: "var(--brand-secondary)" }}
+                >
                   <MessageCircle className="h-4 w-4 mr-1" /> Tenho interesse no WhatsApp
                 </Button>
               </a>

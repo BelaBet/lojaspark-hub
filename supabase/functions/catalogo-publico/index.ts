@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const [{ data: loja }, { data: produtos }] = await Promise.all([
       supabase
         .from("lojas")
-        .select("id, nome, logo_url, telefone")
+        .select("id, nome, logo_url, telefone, cor_primaria, cor_secundaria")
         .eq("id", loja_id)
         .maybeSingle(),
       supabase
