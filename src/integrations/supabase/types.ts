@@ -62,6 +62,13 @@ export type Database = {
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clientes_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
       estoque: {
@@ -101,6 +108,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "estoque_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "estoque_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
@@ -137,6 +151,13 @@ export type Database = {
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_usuarios_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -277,6 +298,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "movimentacoes_estoque_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "movimentacoes_estoque_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
@@ -353,6 +381,13 @@ export type Database = {
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_fiscais_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
             referencedColumns: ["id"]
           },
           {
@@ -446,6 +481,13 @@ export type Database = {
             columns: ["loja_id"]
             isOneToOne: false
             referencedRelation: "lojas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produtos_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
             referencedColumns: ["id"]
           },
         ]
@@ -571,11 +613,53 @@ export type Database = {
             referencedRelation: "lojas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vendas_loja_id_fkey"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "lojas_publico"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      lojas_publico: {
+        Row: {
+          cor_primaria: string | null
+          cor_secundaria: string | null
+          created_at: string | null
+          id: string | null
+          logo_url: string | null
+          nome: string | null
+          onboarding_completo: boolean | null
+          plano: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          id?: string | null
+          logo_url?: string | null
+          nome?: string | null
+          onboarding_completo?: boolean | null
+          plano?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cor_primaria?: string | null
+          cor_secundaria?: string | null
+          created_at?: string | null
+          id?: string | null
+          logo_url?: string | null
+          nome?: string | null
+          onboarding_completo?: boolean | null
+          plano?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_loja_id: { Args: never; Returns: string }
