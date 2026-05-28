@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.create-order]
 verify_jwt = false
+
+[functions.pagarme-webhook]
+verify_jwt = false
