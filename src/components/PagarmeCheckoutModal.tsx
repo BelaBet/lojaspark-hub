@@ -179,6 +179,10 @@ export function PagarmeCheckoutModal({
           status,
           amount_charged: chargedReais,
           installments,
+          base_amount: data?.base_amount,
+          platform_amount: data?.platform_amount,
+          seller_amount: data?.seller_amount,
+          total_amount: data?.amount,
         });
       } else {
         toast.error(`Pagamento não aprovado (${status ?? "desconhecido"})`);
