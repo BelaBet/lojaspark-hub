@@ -309,6 +309,9 @@ const Dashboard = () => {
           />
         </div>
 
+        {/* Total vendido + split por vendedor com filtro de data */}
+        <SplitSection />
+
         {/* Gráfico */}
         <Card className="p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
