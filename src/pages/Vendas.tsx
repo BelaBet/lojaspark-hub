@@ -375,7 +375,15 @@ const Vendas = () => {
     await persistVenda();
   };
 
-  const persistVenda = async (pagarmeInfo?: { order_id: string; paid?: boolean }) => {
+  const persistVenda = async (pagarmeInfo?: {
+    order_id: string;
+    paid?: boolean;
+    base_amount?: number;
+    platform_amount?: number;
+    seller_amount?: number;
+    total_amount?: number;
+    installments?: number;
+  }) => {
     setFinalizando(true);
 
     const { data: lojaIdData } = await supabase.rpc("get_loja_id");
@@ -399,6 +407,11 @@ const Vendas = () => {
         status: "concluida",
         pagarme_order_id: pagarmeInfo?.order_id ?? null,
         pagamento_status: pagarmeInfo ? (pagarmeInfo.paid ? "pago" : "pendente") : "pago",
+        base_amount: pagarmeInfo?.base_amount ?? null,
+        platform_amount: pagarmeInfo?.platform_amount ?? null,
+        seller_amount: pagarmeInfo?.seller_amount ?? null,
+        installments: pagarmeInfo?.installments ?? null,
+        seller_recipient_id: pagarmeInfo ? sellerRecipientId : null,
       })
       .select("id, created_at")
       .single();
@@ -918,7 +931,15 @@ const Vendas = () => {
         onConfirmed={async (result) => {
           setPagarmeOpen(false);
           const paid = result.status === "paid" || result.status === "authorized";
-          await persistVenda({ order_id: result.order_id, paid });
+          await persistVenda({
+            order_id: result.order_id,
+            paid,
+            base_amount: result.base_amount,
+            platform_amount: result.platform_amount,
+            seller_amount: result.seller_amount,
+            total_amount: result.total_amount,
+            installments: result.installments,
+          });
         }}
       />
 
