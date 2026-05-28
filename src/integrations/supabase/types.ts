@@ -563,45 +563,60 @@ export type Database = {
       }
       vendas: {
         Row: {
+          base_amount: number | null
           cliente_id: string | null
           created_at: string
           desconto: number
           forma_pagamento: string | null
           id: string
+          installments: number | null
           loja_id: string
           observacoes: string | null
           pagamento_status: string
           pagarme_order_id: string | null
+          platform_amount: number | null
+          seller_amount: number | null
+          seller_recipient_id: string | null
           status: string
           total: number
           updated_at: string
           vendedor_id: string | null
         }
         Insert: {
+          base_amount?: number | null
           cliente_id?: string | null
           created_at?: string
           desconto?: number
           forma_pagamento?: string | null
           id?: string
+          installments?: number | null
           loja_id: string
           observacoes?: string | null
           pagamento_status?: string
           pagarme_order_id?: string | null
+          platform_amount?: number | null
+          seller_amount?: number | null
+          seller_recipient_id?: string | null
           status?: string
           total?: number
           updated_at?: string
           vendedor_id?: string | null
         }
         Update: {
+          base_amount?: number | null
           cliente_id?: string | null
           created_at?: string
           desconto?: number
           forma_pagamento?: string | null
           id?: string
+          installments?: number | null
           loja_id?: string
           observacoes?: string | null
           pagamento_status?: string
           pagarme_order_id?: string | null
+          platform_amount?: number | null
+          seller_amount?: number | null
+          seller_recipient_id?: string | null
           status?: string
           total?: number
           updated_at?: string
