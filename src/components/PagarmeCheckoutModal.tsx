@@ -1,8 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +20,12 @@ import {
 import { Loader2, QrCode, Copy, Check, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/lib/format";
+import {
+  calculateSplit,
+  getInstallmentTable,
+  INSTALLMENT_RATE,
+  STONE_MDR_RATE,
+} from "@/lib/pagarme-split";
 
 export type PagarmeMethod = "pix" | "credit_card";
 
@@ -29,9 +42,16 @@ type Props = {
   method: PagarmeMethod;
   amount: number; // em reais
   customer?: PagarmeCustomer;
+  /** ID do recebedor da loja no Pagar.me (re_xxxxx). Quando ausente, não aplica split. */
+  sellerRecipientId?: string | null;
   onClose: () => void;
   /** Chamado quando o pagamento for confirmado (PIX: manual; cartão: status paid/authorized) */
-  onConfirmed: (result: { order_id: string; status: string }) => void;
+  onConfirmed: (result: {
+    order_id: string;
+    status: string;
+    amount_charged?: number; // em reais, total efetivamente cobrado (com acréscimo)
+    installments?: number;
+  }) => void;
 };
 
 type PixResult = {
@@ -42,7 +62,15 @@ type PixResult = {
   pix_expires_at: string | null;
 };
 
-export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, onConfirmed }: Props) {
+export function PagarmeCheckoutModal({
+  open,
+  method,
+  amount,
+  customer,
+  sellerRecipientId,
+  onClose,
+  onConfirmed,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [pix, setPix] = useState<PixResult | null>(null);
   const [copied, setCopied] = useState(false);
@@ -53,7 +81,8 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
   const [expMonth, setExpMonth] = useState("");
   const [expYear, setExpYear] = useState("");
   const [cvv, setCvv] = useState("");
-  const [installments, setInstallments] = useState("1");
+  const [installments, setInstallments] = useState(1);
+  const [showTable, setShowTable] = useState(false);
 
   // Reset ao abrir
   useEffect(() => {
@@ -65,7 +94,8 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
       setExpMonth("");
       setExpYear("");
       setCvv("");
-      setInstallments("1");
+      setInstallments(1);
+      setShowTable(false);
       return;
     }
     // Para PIX, criamos o pedido imediatamente
@@ -75,6 +105,13 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
 
   const amountCents = Math.round(amount * 100);
 
+  const split = useMemo(
+    () => calculateSplit(amountCents, method === "credit_card" ? installments : 1, true),
+    [amountCents, method, installments],
+  );
+  const installmentTable = useMemo(() => getInstallmentTable(amountCents, 12), [amountCents]);
+  const stoneFee = Math.round(split.sellerAmount * STONE_MDR_RATE);
+
   const gerarPix = async () => {
     setLoading(true);
     try {
@@ -83,6 +120,8 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
           payment_method: "pix",
           amount: amountCents,
           customer,
+          seller_recipient_id: sellerRecipientId ?? undefined,
+          pass_surcharge_to_customer: false,
         },
       });
       if (error) throw error;
@@ -109,22 +148,30 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
           payment_method: "credit_card",
           amount: amountCents,
           customer,
+          seller_recipient_id: sellerRecipientId ?? undefined,
+          pass_surcharge_to_customer: true,
           card: {
             number: num,
             holder_name: holder.trim(),
             exp_month: Number(expMonth),
             exp_year: Number(expYear.length === 2 ? `20${expYear}` : expYear),
             cvv,
-            installments: Number(installments),
+            installments,
           },
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const status = data?.charge_status ?? data?.status;
+      const chargedReais = (data?.amount ?? amountCents) / 100;
       if (status === "paid" || status === "authorized" || data?.status === "paid") {
         toast.success("Pagamento aprovado");
-        onConfirmed({ order_id: data.order_id, status });
+        onConfirmed({
+          order_id: data.order_id,
+          status,
+          amount_charged: chargedReais,
+          installments,
+        });
       } else {
         toast.error(`Pagamento não aprovado (${status ?? "desconhecido"})`);
       }
@@ -152,7 +199,12 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
             {method === "pix" ? "Pagamento via PIX" : "Pagamento no cartão"}
           </DialogTitle>
           <DialogDescription>
-            Total: <span className="num font-bold text-foreground">{brl(amount)}</span>
+            Total: <span className="num font-bold text-foreground">{brl(split.totalAmount / 100)}</span>
+            {method === "credit_card" && installments > 1 && (
+              <span className="ml-2 text-xs text-muted-foreground">
+                ({installments}× de {brl(split.totalAmount / 100 / installments)})
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -255,22 +307,107 @@ export function PagarmeCheckoutModal({ open, method, amount, customer, onClose, 
               </div>
             </div>
             <div>
-              <Label>Parcelas</Label>
-              <Input
-                value={installments}
-                onChange={(e) => setInstallments(e.target.value)}
-                type="number"
-                min="1"
-                max="12"
-                className="mono"
-              />
+              <div className="flex items-center justify-between">
+                <Label>Parcelas</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowTable((v) => !v)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {showTable ? "Ocultar tabela" : "Ver tabela completa"}
+                </button>
+              </div>
+              <Select
+                value={String(installments)}
+                onValueChange={(v) => setInstallments(Number(v))}
+              >
+                <SelectTrigger className="mono mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {installmentTable.map((row) => (
+                    <SelectItem key={row.installments} value={String(row.installments)}>
+                      {row.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="mt-3 rounded-md bg-muted/40 p-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="num">{brl(amountCents / 100)}</span>
+                </div>
+                {split.installmentSurcharge > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Acréscimo ({(INSTALLMENT_RATE * (installments - 1) * 100).toFixed(2)}%)
+                    </span>
+                    <span className="num">+ {brl(split.installmentSurcharge / 100)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold border-t pt-1.5">
+                  <span>Total cobrado</span>
+                  <span className="num">{brl(split.totalAmount / 100)}</span>
+                </div>
+                {sellerRecipientId && (
+                  <>
+                    <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                      <span>Plataforma recebe</span>
+                      <span className="num">
+                        {brl(split.platformAmount / 100)} ({(split.platformRate * 100).toFixed(2)}%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Lojista recebe (antes do MDR)</span>
+                      <span className="num">{brl(split.sellerAmount / 100)}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted-foreground/80">
+                      <span>Stone deduz (2,04%)</span>
+                      <span className="num">− {brl(stoneFee / 100)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {showTable && (
+                <div className="mt-3 max-h-56 overflow-y-auto rounded-md border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60 text-muted-foreground">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left">Parc.</th>
+                        <th className="px-2 py-1.5 text-right">Por parcela</th>
+                        <th className="px-2 py-1.5 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="num">
+                      {installmentTable.map((row) => (
+                        <tr
+                          key={row.installments}
+                          onClick={() => {
+                            setInstallments(row.installments);
+                            setShowTable(false);
+                          }}
+                          className={`cursor-pointer border-t hover:bg-muted/40 ${
+                            row.installments === installments ? "bg-primary/10" : ""
+                          }`}
+                        >
+                          <td className="px-2 py-1.5">{row.installments}×</td>
+                          <td className="px-2 py-1.5 text-right">{brl(row.perInstallment / 100)}</td>
+                          <td className="px-2 py-1.5 text-right">{brl(row.totalAmount / 100)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-2 pt-2">
               <Button type="button" onClick={cobrarCartao} disabled={loading} className="w-full h-11">
                 {loading ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processando…</>
                 ) : (
-                  <>Cobrar {brl(amount)}</>
+                  <>Cobrar {brl(split.totalAmount / 100)}</>
                 )}
               </Button>
               <Button type="button" variant="ghost" onClick={onClose} disabled={loading} className="w-full">

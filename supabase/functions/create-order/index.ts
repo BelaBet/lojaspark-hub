@@ -1,5 +1,5 @@
-// Edge function pública: cria um pedido no Pagar.me (PIX ou cartão de crédito).
-// Requer secret PAGARME_SECRET_KEY. Não exige usuário autenticado.
+// Edge function pública: cria pedido no Pagar.me (PIX, crédito ou débito) com split.
+// Secrets: PAGARME_SECRET_KEY, PAGARME_PLATFORM_RECIPIENT_ID.
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
 
 const corsHeaders = {
@@ -7,6 +7,51 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const PLATFORM_BASE_RATE = 0.0096;
+const INSTALLMENT_RATE = 0.011;
+
+function calculateSplit(baseAmount: number, installments: number, passToCustomer: boolean) {
+  const surchargeRate = installments > 1 ? INSTALLMENT_RATE * (installments - 1) : 0;
+  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
+  const totalAmount =
+    passToCustomer && installments > 1
+      ? baseAmount + Math.round(baseAmount * surchargeRate)
+      : baseAmount;
+  const platformAmount = Math.round(totalAmount * platformRate);
+  const sellerAmount = totalAmount - platformAmount;
+  return { totalAmount, platformAmount, sellerAmount };
+}
+
+function buildSplit(
+  platformAmount: number,
+  sellerAmount: number,
+  platformRecipientId: string,
+  sellerRecipientId: string,
+) {
+  return [
+    {
+      recipient_id: platformRecipientId,
+      amount: platformAmount,
+      type: "flat",
+      options: {
+        charge_processing_fee: false,
+        liable: false,
+        charge_remainder_fee: false,
+      },
+    },
+    {
+      recipient_id: sellerRecipientId,
+      amount: sellerAmount,
+      type: "flat",
+      options: {
+        charge_processing_fee: true,
+        liable: true,
+        charge_remainder_fee: true,
+      },
+    },
+  ];
+}
 
 type CardData = {
   number: string;
@@ -19,8 +64,8 @@ type CardData = {
 };
 
 type Body = {
-  payment_method: "pix" | "credit_card";
-  amount: number; // em centavos
+  payment_method: "pix" | "credit_card" | "debit_card";
+  amount: number; // base em centavos
   customer?: {
     name?: string;
     email?: string;
@@ -29,13 +74,10 @@ type Body = {
     area_code?: string;
     phone?: string;
   };
-  items?: Array<{
-    amount: number;
-    description: string;
-    quantity: number;
-    code?: string;
-  }>;
+  items?: Array<{ amount: number; description: string; quantity: number; code?: string }>;
   card?: CardData;
+  seller_recipient_id?: string;
+  pass_surcharge_to_customer?: boolean;
 };
 
 Deno.serve(async (req) => {
@@ -49,19 +91,46 @@ Deno.serve(async (req) => {
       return json({ error: "PAGARME_SECRET_KEY não configurada" }, 500);
     }
 
-    const body = (await req.json()) as Body;
-    const { payment_method, amount, customer, items, card } = body;
+    const platformRecipientId = Deno.env.get("PAGARME_PLATFORM_RECIPIENT_ID");
 
-    if (!payment_method || (payment_method !== "pix" && payment_method !== "credit_card")) {
-      return json({ error: "payment_method inválido (pix ou credit_card)" }, 400);
+    const body = (await req.json()) as Body;
+    const {
+      payment_method,
+      amount,
+      customer,
+      items,
+      card,
+      seller_recipient_id,
+      pass_surcharge_to_customer = true,
+    } = body;
+
+    if (
+      !payment_method ||
+      (payment_method !== "pix" &&
+        payment_method !== "credit_card" &&
+        payment_method !== "debit_card")
+    ) {
+      return json({ error: "payment_method inválido (pix, credit_card ou debit_card)" }, 400);
     }
     if (!amount || amount <= 0) {
       return json({ error: "amount obrigatório (em centavos)" }, 400);
     }
 
+    const installments = card?.installments ?? 1;
+    const { totalAmount, platformAmount, sellerAmount } = calculateSplit(
+      amount,
+      payment_method === "credit_card" ? installments : 1,
+      pass_surcharge_to_customer,
+    );
+
+    const splitConfig =
+      seller_recipient_id && platformRecipientId
+        ? buildSplit(platformAmount, sellerAmount, platformRecipientId, seller_recipient_id)
+        : null;
+
     const orderPayload: Record<string, unknown> = {
       items: items ?? [
-        { amount, description: "Venda PDV", quantity: 1, code: "PDV-001" },
+        { amount: totalAmount, description: "Venda PDV", quantity: 1, code: "PDV-001" },
       ],
       customer: {
         name: customer?.name ?? "Cliente",
@@ -80,17 +149,19 @@ Deno.serve(async (req) => {
     };
 
     if (payment_method === "pix") {
-      (orderPayload.payments as unknown[]).push({
+      const payment: Record<string, unknown> = {
         payment_method: "pix",
         pix: { expires_in: 3600 },
-        amount,
-      });
-    } else {
+        amount: totalAmount,
+      };
+      if (splitConfig) payment.split = splitConfig;
+      (orderPayload.payments as unknown[]).push(payment);
+    } else if (payment_method === "credit_card") {
       if (!card) return json({ error: "Dados do cartão obrigatórios" }, 400);
-      (orderPayload.payments as unknown[]).push({
+      const payment: Record<string, unknown> = {
         payment_method: "credit_card",
         credit_card: {
-          installments: card.installments ?? 1,
+          installments,
           statement_descriptor: card.statement_descriptor ?? "PDV",
           card: {
             number: card.number.replace(/\s/g, ""),
@@ -100,8 +171,27 @@ Deno.serve(async (req) => {
             cvv: card.cvv,
           },
         },
-        amount,
-      });
+        amount: totalAmount,
+      };
+      if (splitConfig) payment.split = splitConfig;
+      (orderPayload.payments as unknown[]).push(payment);
+    } else {
+      if (!card) return json({ error: "Dados do cartão obrigatórios" }, 400);
+      const payment: Record<string, unknown> = {
+        payment_method: "debit_card",
+        debit_card: {
+          card: {
+            number: card.number.replace(/\s/g, ""),
+            holder_name: card.holder_name,
+            exp_month: card.exp_month,
+            exp_year: card.exp_year,
+            cvv: card.cvv,
+          },
+        },
+        amount: totalAmount,
+      };
+      if (splitConfig) payment.split = splitConfig;
+      (orderPayload.payments as unknown[]).push(payment);
     }
 
     const pagarmeRes = await fetch(`${PAGARME_BASE_URL}/orders`, {
@@ -130,7 +220,11 @@ Deno.serve(async (req) => {
       order_id: pagarmeData.id,
       status: pagarmeData.status,
       charge_status: charge?.status ?? null,
-      amount: pagarmeData.amount,
+      amount: totalAmount,
+      base_amount: amount,
+      platform_amount: platformAmount,
+      seller_amount: sellerAmount,
+      split_applied: !!splitConfig,
       pix_qr_code: lastTransaction?.qr_code ?? null,
       pix_qr_code_url: lastTransaction?.qr_code_url ?? null,
       pix_expires_at: lastTransaction?.expires_at ?? null,
