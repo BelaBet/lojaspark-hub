@@ -1,7 +1,5 @@
-// Edge function: cria um pedido no Pagar.me (PIX ou cartão de crédito).
-// Requer secret PAGARME_SECRET_KEY. Acessada pelo PDV autenticado.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
+// Edge function pública: cria um pedido no Pagar.me (PIX ou cartão de crédito).
+// Requer secret PAGARME_SECRET_KEY. Não exige usuário autenticado.
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
 
 const corsHeaders = {
@@ -46,22 +44,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth: exige usuário logado
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Não autenticado" }, 401);
-    }
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
-    if (claimsErr || !claimsData?.claims) {
-      return json({ error: "Não autenticado" }, 401);
-    }
-
     const secretKey = Deno.env.get("PAGARME_SECRET_KEY");
     if (!secretKey) {
       return json({ error: "PAGARME_SECRET_KEY não configurada" }, 500);
