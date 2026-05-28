@@ -375,7 +375,7 @@ const Vendas = () => {
     await persistVenda();
   };
 
-  const persistVenda = async () => {
+  const persistVenda = async (pagarmeInfo?: { order_id: string }) => {
     setFinalizando(true);
 
     const { data: lojaIdData } = await supabase.rpc("get_loja_id");
@@ -397,6 +397,8 @@ const Vendas = () => {
         desconto,
         forma_pagamento: pagamento,
         status: "concluida",
+        pagarme_order_id: pagarmeInfo?.order_id ?? null,
+        pagamento_status: pagarmeInfo ? "pendente" : "pago",
       })
       .select("id, created_at")
       .single();
