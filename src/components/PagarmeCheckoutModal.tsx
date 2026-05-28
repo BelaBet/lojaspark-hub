@@ -51,6 +51,10 @@ type Props = {
     status: string;
     amount_charged?: number; // em reais, total efetivamente cobrado (com acréscimo)
     installments?: number;
+    base_amount?: number;
+    platform_amount?: number;
+    seller_amount?: number;
+    total_amount?: number;
   }) => void;
 };
 
@@ -60,6 +64,10 @@ type PixResult = {
   pix_qr_code: string | null;
   pix_qr_code_url: string | null;
   pix_expires_at: string | null;
+  base_amount?: number;
+  platform_amount?: number;
+  seller_amount?: number;
+  amount?: number;
 };
 
 export function PagarmeCheckoutModal({
@@ -171,6 +179,10 @@ export function PagarmeCheckoutModal({
           status,
           amount_charged: chargedReais,
           installments,
+          base_amount: data?.base_amount,
+          platform_amount: data?.platform_amount,
+          seller_amount: data?.seller_amount,
+          total_amount: data?.amount,
         });
       } else {
         toast.error(`Pagamento não aprovado (${status ?? "desconhecido"})`);
@@ -236,7 +248,14 @@ export function PagarmeCheckoutModal({
                 <div className="flex flex-col gap-2 pt-2">
                   <Button
                     type="button"
-                    onClick={() => onConfirmed({ order_id: pix.order_id, status: "pending" })}
+                    onClick={() => onConfirmed({
+                      order_id: pix.order_id,
+                      status: "pending",
+                      base_amount: pix.base_amount,
+                      platform_amount: pix.platform_amount,
+                      seller_amount: pix.seller_amount,
+                      total_amount: pix.amount,
+                    })}
                     className="w-full h-11"
                   >
                     Já recebi o PIX — finalizar venda
