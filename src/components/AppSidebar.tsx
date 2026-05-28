@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, LogOut, ShoppingCart, History, Boxes, FileText, Users, Shield } from "lucide-react";
+import { LayoutDashboard, Package, LogOut, ShoppingCart, History, Boxes, FileText, Users, Shield, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -27,6 +27,7 @@ const items = [
   { title: "Estoque", url: "/estoque", icon: Boxes },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Notas Fiscais", url: "/notas-fiscais", icon: FileText },
+  { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
 export function AppSidebar() {
