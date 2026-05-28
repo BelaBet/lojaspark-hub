@@ -915,9 +915,9 @@ const Vendas = () => {
             : undefined
         }
         onClose={() => setPagarmeOpen(false)}
-        onConfirmed={async () => {
+        onConfirmed={async (result) => {
           setPagarmeOpen(false);
-          await persistVenda();
+          await persistVenda({ order_id: result.order_id });
         }}
       />
 
