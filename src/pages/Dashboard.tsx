@@ -362,6 +362,64 @@ const Dashboard = () => {
           </div>
         </Card>
 
+        {/* Pagamentos Pagar.me em tempo real */}
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <span className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Pagar.me · em tempo real
+              </span>
+              <h2 className="font-display text-xl font-bold mt-1">Pagamentos online</h2>
+            </div>
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <StatusTile icon={Clock} label="Pendentes" value={pgPendentes} tone="warning" />
+            <StatusTile icon={CheckCircle2} label="Pagos (7d)" value={pgPagos} tone="success" />
+            <StatusTile icon={XCircle} label="Falhas (7d)" value={pgFalhou} tone="destructive" />
+          </div>
+
+          {pgRecentes.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Nenhum pagamento Pagar.me ainda.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {pgRecentes.map((v) => {
+                const pg = fmtPagamento(v.forma_pagamento);
+                const Icon = pg.icon;
+                const st = v.pagamento_status ?? "pendente";
+                return (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between gap-3 py-2.5 border-b border-border last:border-0"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="mono text-[10px] text-muted-foreground shrink-0 w-10">
+                        {fmtHora(v.created_at)}
+                      </span>
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-medium truncate">
+                        {v.clientes?.nome ?? "Sem cliente"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <PagamentoStatusBadge status={st} />
+                      <span className="num font-semibold text-sm w-24 text-right">
+                        {brl(v.total)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
         {/* Tabelas lado a lado */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Top produtos */}
