@@ -534,6 +534,57 @@ const calcVariacao = (atual: number, anterior: number): { pct: number; positiva:
   return { pct: Math.abs(pct), positiva: pct >= 0, tem: true };
 };
 
+const StatusTile = ({
+  icon: Icon, label, value, tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: number;
+  tone: "warning" | "success" | "destructive";
+}) => {
+  const toneClass =
+    tone === "warning"
+      ? "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+      : tone === "success"
+      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+      : "text-destructive bg-destructive/10";
+  return (
+    <div className="rounded-xl border border-border p-3 flex items-center gap-3">
+      <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${toneClass}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="mono text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+          {label}
+        </div>
+        <div className="num text-xl font-bold leading-tight">{value}</div>
+      </div>
+    </div>
+  );
+};
+
+const PagamentoStatusBadge = ({ status }: { status: string }) => {
+  if (status === "pago") {
+    return (
+      <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10">
+        <CheckCircle2 className="h-3 w-3" /> Pago
+      </Badge>
+    );
+  }
+  if (status === "falhou") {
+    return (
+      <Badge variant="outline" className="text-[10px] gap-1 border-destructive/30 text-destructive bg-destructive/10">
+        <XCircle className="h-3 w-3" /> Falhou
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/30 text-amber-700 dark:text-amber-400 bg-amber-500/10">
+      <Clock className="h-3 w-3" /> Pendente
+    </Badge>
+  );
+};
+
 const KpiCard = ({
   label, value, icon: Icon, tone, hint, variacao, comparativo, href, loading,
 }: {
