@@ -375,7 +375,7 @@ const Vendas = () => {
     await persistVenda();
   };
 
-  const persistVenda = async (pagarmeInfo?: { order_id: string }) => {
+  const persistVenda = async (pagarmeInfo?: { order_id: string; paid?: boolean }) => {
     setFinalizando(true);
 
     const { data: lojaIdData } = await supabase.rpc("get_loja_id");
@@ -398,7 +398,7 @@ const Vendas = () => {
         forma_pagamento: pagamento,
         status: "concluida",
         pagarme_order_id: pagarmeInfo?.order_id ?? null,
-        pagamento_status: pagarmeInfo ? "pendente" : "pago",
+        pagamento_status: pagarmeInfo ? (pagarmeInfo.paid ? "pago" : "pendente") : "pago",
       })
       .select("id, created_at")
       .single();
@@ -917,7 +917,8 @@ const Vendas = () => {
         onClose={() => setPagarmeOpen(false)}
         onConfirmed={async (result) => {
           setPagarmeOpen(false);
-          await persistVenda({ order_id: result.order_id });
+          const paid = result.status === "paid" || result.status === "authorized";
+          await persistVenda({ order_id: result.order_id, paid });
         }}
       />
 
