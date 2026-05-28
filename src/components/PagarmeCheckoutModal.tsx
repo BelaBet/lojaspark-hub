@@ -51,6 +51,10 @@ type Props = {
     status: string;
     amount_charged?: number; // em reais, total efetivamente cobrado (com acréscimo)
     installments?: number;
+    base_amount?: number;
+    platform_amount?: number;
+    seller_amount?: number;
+    total_amount?: number;
   }) => void;
 };
 
@@ -60,6 +64,10 @@ type PixResult = {
   pix_qr_code: string | null;
   pix_qr_code_url: string | null;
   pix_expires_at: string | null;
+  base_amount?: number;
+  platform_amount?: number;
+  seller_amount?: number;
+  amount?: number;
 };
 
 export function PagarmeCheckoutModal({
