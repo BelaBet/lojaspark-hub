@@ -244,7 +244,14 @@ export function PagarmeCheckoutModal({
                 <div className="flex flex-col gap-2 pt-2">
                   <Button
                     type="button"
-                    onClick={() => onConfirmed({ order_id: pix.order_id, status: "pending" })}
+                    onClick={() => onConfirmed({
+                      order_id: pix.order_id,
+                      status: "pending",
+                      base_amount: pix.base_amount,
+                      platform_amount: pix.platform_amount,
+                      seller_amount: pix.seller_amount,
+                      total_amount: pix.amount,
+                    })}
                     className="w-full h-11"
                   >
                     Já recebi o PIX — finalizar venda
