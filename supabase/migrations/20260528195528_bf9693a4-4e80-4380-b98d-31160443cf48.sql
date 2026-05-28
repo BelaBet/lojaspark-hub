@@ -1,0 +1,1 @@
+ALTER TABLE public.lojas ADD COLUMN IF NOT EXISTS pagarme_recipient_id text;

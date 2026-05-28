@@ -173,6 +173,7 @@ export type Database = {
           logo_url: string | null
           nome: string
           onboarding_completo: boolean
+          pagarme_recipient_id: string | null
           plano: string
           telefone: string | null
           updated_at: string
@@ -187,6 +188,7 @@ export type Database = {
           logo_url?: string | null
           nome: string
           onboarding_completo?: boolean
+          pagarme_recipient_id?: string | null
           plano?: string
           telefone?: string | null
           updated_at?: string
@@ -201,6 +203,7 @@ export type Database = {
           logo_url?: string | null
           nome?: string
           onboarding_completo?: boolean
+          pagarme_recipient_id?: string | null
           plano?: string
           telefone?: string | null
           updated_at?: string
