@@ -570,6 +570,7 @@ export type Database = {
           id: string
           loja_id: string
           observacoes: string | null
+          pagamento_status: string
           pagarme_order_id: string | null
           status: string
           total: number
@@ -584,6 +585,7 @@ export type Database = {
           id?: string
           loja_id: string
           observacoes?: string | null
+          pagamento_status?: string
           pagarme_order_id?: string | null
           status?: string
           total?: number
@@ -598,6 +600,7 @@ export type Database = {
           id?: string
           loja_id?: string
           observacoes?: string | null
+          pagamento_status?: string
           pagarme_order_id?: string | null
           status?: string
           total?: number

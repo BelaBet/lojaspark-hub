@@ -73,18 +73,24 @@ Deno.serve(async (req) => {
 
     // ─── 3. Mapeia evento para status interno da venda ───────────────────────
     let novoStatus: string | null = null;
+    let novoPagamentoStatus: string | null = null;
     if (eventType === "order.paid" || eventType === "charge.paid") {
       novoStatus = "concluida";
+      novoPagamentoStatus = "pago";
     } else if (
       eventType === "order.payment_failed" ||
-      eventType === "charge.payment_failed" ||
+      eventType === "charge.payment_failed"
+    ) {
+      novoPagamentoStatus = "falhou";
+    } else if (
       eventType === "order.canceled" ||
       eventType === "charge.refunded"
     ) {
       novoStatus = "cancelada";
+      novoPagamentoStatus = "falhou";
     }
 
-    if (!novoStatus) {
+    if (!novoStatus && !novoPagamentoStatus) {
       // Evento que não nos interessa — apenas confirma recebimento
       return new Response(JSON.stringify({ received: true, ignored: eventType }), {
         status: 200,
@@ -98,9 +104,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (novoStatus) updatePayload.status = novoStatus;
+    if (novoPagamentoStatus) updatePayload.pagamento_status = novoPagamentoStatus;
+
     const { data: updated, error: dbError } = await supabase
       .from("vendas")
-      .update({ status: novoStatus, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq("pagarme_order_id", orderId)
       .select("id");
 
@@ -114,7 +124,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ received: true, status: novoStatus, matched: updated?.length ?? 0 }),
+      JSON.stringify({
+        received: true,
+        status: novoStatus,
+        pagamento_status: novoPagamentoStatus,
+        matched: updated?.length ?? 0,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
