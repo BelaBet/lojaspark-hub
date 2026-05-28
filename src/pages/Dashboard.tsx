@@ -8,7 +8,7 @@ import { brl, num } from "@/lib/format";
 import {
   AlertTriangle, ShoppingBag, Users, TrendingUp, TrendingDown,
   Banknote, CalendarDays, AlertOctagon, ArrowUpRight, Package,
-  CreditCard, QrCode,
+  CreditCard, QrCode, Clock, CheckCircle2, XCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -21,6 +21,7 @@ type Venda = {
   created_at: string;
   forma_pagamento: string | null;
   cliente_id: string | null;
+  pagamento_status: string | null;
   clientes: { nome: string } | null;
 };
 
@@ -58,6 +59,12 @@ const Dashboard = () => {
   const [estoqueZerado, setEstoqueZerado] = useState(0);
   const [clientesNovos, setClientesNovos] = useState(0);
 
+  // Pagar.me em tempo real
+  const [pgPendentes, setPgPendentes] = useState(0);
+  const [pgPagos, setPgPagos] = useState(0);
+  const [pgFalhou, setPgFalhou] = useState(0);
+  const [pgRecentes, setPgRecentes] = useState<Venda[]>([]);
+
   // Charts e listas
   const [chart, setChart] = useState<ChartPoint[]>([]);
   const [topProdutos, setTopProdutos] = useState<ItemTop[]>([]);
@@ -65,7 +72,47 @@ const Dashboard = () => {
 
   useEffect(() => {
     void carregar();
+    void carregarPagarme();
+
+    const channel = supabase
+      .channel("dashboard-vendas")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vendas" },
+        () => {
+          void carregarPagarme();
+          void carregar();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  const carregarPagarme = async () => {
+    const dias7 = new Date(); dias7.setDate(dias7.getDate() - 7);
+    const [pendQ, pagoQ, falhouQ, recentesQ] = await Promise.all([
+      supabase.from("vendas").select("id", { count: "exact", head: true })
+        .eq("pagamento_status", "pendente").not("pagarme_order_id", "is", null),
+      supabase.from("vendas").select("id", { count: "exact", head: true })
+        .eq("pagamento_status", "pago").not("pagarme_order_id", "is", null)
+        .gte("created_at", dias7.toISOString()),
+      supabase.from("vendas").select("id", { count: "exact", head: true })
+        .eq("pagamento_status", "falhou").not("pagarme_order_id", "is", null)
+        .gte("created_at", dias7.toISOString()),
+      supabase.from("vendas")
+        .select("id, total, created_at, forma_pagamento, cliente_id, pagamento_status, clientes(nome)")
+        .not("pagarme_order_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(6),
+    ]);
+    setPgPendentes(pendQ.count ?? 0);
+    setPgPagos(pagoQ.count ?? 0);
+    setPgFalhou(falhouQ.count ?? 0);
+    setPgRecentes((recentesQ.data ?? []) as unknown as Venda[]);
+  };
 
   const carregar = async () => {
     setLoading(true);
@@ -108,7 +155,7 @@ const Dashboard = () => {
           .gte("created_at", dias30Ini.toISOString())
           .order("created_at", { ascending: true }),
         supabase.from("vendas")
-          .select("id, total, created_at, forma_pagamento, cliente_id, clientes(nome)")
+          .select("id, total, created_at, forma_pagamento, cliente_id, pagamento_status, clientes(nome)")
           .eq("status", "concluida")
           .order("created_at", { ascending: false })
           .limit(5),
