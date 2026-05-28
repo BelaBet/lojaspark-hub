@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { SplitSection } from "@/components/dashboard/SplitSection";
 
 type Venda = {
   id: string;
