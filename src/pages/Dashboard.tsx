@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { SplitSection } from "@/components/dashboard/SplitSection";
 
 type Venda = {
   id: string;
@@ -307,6 +308,9 @@ const Dashboard = () => {
             loading={loading}
           />
         </div>
+
+        {/* Total vendido + split por vendedor com filtro de data */}
+        <SplitSection />
 
         {/* Gráfico */}
         <Card className="p-4 sm:p-6">
