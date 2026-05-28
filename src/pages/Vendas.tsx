@@ -901,6 +901,7 @@ const Vendas = () => {
         open={pagarmeOpen}
         method={pagarmeMethod}
         amount={total}
+        sellerRecipientId={sellerRecipientId}
         customer={
           cliente
             ? {
