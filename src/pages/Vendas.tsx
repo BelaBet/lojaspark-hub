@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendaSucessoModal, type VendaConcluida } from "@/components/VendaSucessoModal";
+import { PagarmeCheckoutModal, type PagarmeMethod } from "@/components/PagarmeCheckoutModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   AlertDialog,
@@ -55,7 +56,7 @@ type CartItem = {
   removing?: boolean;
 };
 
-type Cliente = { id: string; nome: string; telefone: string | null };
+type Cliente = { id: string; nome: string; telefone: string | null; cpf_cnpj?: string | null; email?: string | null };
 
 type Pagamento = "dinheiro" | "pix" | "cartao_debito" | "cartao_credito";
 type DescontoTipo = "valor" | "percent";
@@ -91,6 +92,8 @@ const Vendas = () => {
 
   const [finalizando, setFinalizando] = useState(false);
   const [sucesso, setSucesso] = useState<VendaConcluida | null>(null);
+  const [pagarmeOpen, setPagarmeOpen] = useState(false);
+  const [pagarmeMethod, setPagarmeMethod] = useState<PagarmeMethod>("pix");
 
   // Foco automático
   useEffect(() => {
@@ -111,7 +114,7 @@ const Vendas = () => {
           .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade,quantidade_minima,deposito)")
           .eq("ativo", true)
           .order("nome"),
-        supabase.from("clientes").select("id,nome,telefone").order("nome"),
+        supabase.from("clientes").select("id,nome,telefone,cpf_cnpj,email").order("nome"),
         supabase
           .from("vendas")
           .select("id, venda_itens(produto_id, quantidade)")
@@ -359,6 +362,16 @@ const Vendas = () => {
       toast.error("Valor recebido menor que o total");
       return;
     }
+    // Pagamentos online via Pagar.me
+    if (pagamento === "pix" || pagamento === "cartao_credito") {
+      setPagarmeMethod(pagamento === "pix" ? "pix" : "credit_card");
+      setPagarmeOpen(true);
+      return;
+    }
+    await persistVenda();
+  };
+
+  const persistVenda = async () => {
     setFinalizando(true);
 
     const { data: lojaIdData } = await supabase.rpc("get_loja_id");
@@ -879,6 +892,27 @@ const Vendas = () => {
       </div>
 
       {sucesso && <VendaSucessoModal venda={sucesso} onNovaVenda={novaVenda} />}
+
+      <PagarmeCheckoutModal
+        open={pagarmeOpen}
+        method={pagarmeMethod}
+        amount={total}
+        customer={
+          cliente
+            ? {
+                name: cliente.nome,
+                email: cliente.email ?? undefined,
+                document: cliente.cpf_cnpj ?? undefined,
+                phone: cliente.telefone ?? undefined,
+              }
+            : undefined
+        }
+        onClose={() => setPagarmeOpen(false)}
+        onConfirmed={async () => {
+          setPagarmeOpen(false);
+          await persistVenda();
+        }}
+      />
 
       {/* FAB Ver Carrinho — só mobile, na aba Busca, quando há itens */}
       {isMobile && mobileTab === "busca" && cart.length > 0 && (
