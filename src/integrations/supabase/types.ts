@@ -567,6 +567,7 @@ export type Database = {
           id: string
           loja_id: string
           observacoes: string | null
+          pagarme_order_id: string | null
           status: string
           total: number
           updated_at: string
@@ -580,6 +581,7 @@ export type Database = {
           id?: string
           loja_id: string
           observacoes?: string | null
+          pagarme_order_id?: string | null
           status?: string
           total?: number
           updated_at?: string
@@ -593,6 +595,7 @@ export type Database = {
           id?: string
           loja_id?: string
           observacoes?: string | null
+          pagarme_order_id?: string | null
           status?: string
           total?: number
           updated_at?: string
