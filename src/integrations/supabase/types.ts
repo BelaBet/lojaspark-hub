@@ -258,6 +258,42 @@ export type Database = {
         }
         Relationships: []
       }
+      maquininhas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          localizacao: string | null
+          loja_id: string
+          nome: string
+          serial: string
+          ultima_atividade: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          localizacao?: string | null
+          loja_id: string
+          nome: string
+          serial: string
+          ultima_atividade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          localizacao?: string | null
+          loja_id?: string
+          nome?: string
+          serial?: string
+          ultima_atividade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       movimentacoes_estoque: {
         Row: {
           created_at: string
@@ -567,16 +603,21 @@ export type Database = {
           cliente_id: string | null
           created_at: string
           desconto: number
+          device_serial: string | null
           forma_pagamento: string | null
           id: string
           installments: number | null
           loja_id: string
           observacoes: string | null
           pagamento_status: string
+          pagarme_charge_id: string | null
           pagarme_order_id: string | null
+          paid_at: string | null
+          payment_channel: string | null
           platform_amount: number | null
           seller_amount: number | null
           seller_recipient_id: string | null
+          split_rules: Json | null
           status: string
           total: number
           updated_at: string
@@ -587,16 +628,21 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           desconto?: number
+          device_serial?: string | null
           forma_pagamento?: string | null
           id?: string
           installments?: number | null
           loja_id: string
           observacoes?: string | null
           pagamento_status?: string
+          pagarme_charge_id?: string | null
           pagarme_order_id?: string | null
+          paid_at?: string | null
+          payment_channel?: string | null
           platform_amount?: number | null
           seller_amount?: number | null
           seller_recipient_id?: string | null
+          split_rules?: Json | null
           status?: string
           total?: number
           updated_at?: string
@@ -607,16 +653,21 @@ export type Database = {
           cliente_id?: string | null
           created_at?: string
           desconto?: number
+          device_serial?: string | null
           forma_pagamento?: string | null
           id?: string
           installments?: number | null
           loja_id?: string
           observacoes?: string | null
           pagamento_status?: string
+          pagarme_charge_id?: string | null
           pagarme_order_id?: string | null
+          paid_at?: string | null
+          payment_channel?: string | null
           platform_amount?: number | null
           seller_amount?: number | null
           seller_recipient_id?: string | null
+          split_rules?: Json | null
           status?: string
           total?: number
           updated_at?: string
