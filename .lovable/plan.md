@@ -1,57 +1,66 @@
-## Objetivo
+## Diagnóstico
 
-Adicionar um fluxo de **inicialização da loja** (onboarding) que aparece logo após o cadastro/login, antes do dashboard, para o lojista preencher os dados básicos da sua loja.
+Cruzando código + banco, identifiquei **dois problemas independentes** que juntos explicam por que as capturas não acontecem:
 
-## Como funciona hoje
+### 1. Split nunca é enviado (recipient null)
+- A loja "Igreja Batista da Lagoinha" tem `pagarme_recipient_id = re_cmpcr534o9me40l9ti0cnqz6e` cadastrado.
+- Mas todas as 41 vendas POS recentes ficaram com `seller_recipient_id = null` e `split_rules = null`.
+- Causa: `src/pages/Vendas.tsx:141` faz `supabase.from("lojas").select("pagarme_recipient_id").maybeSingle()`, porém a RLS `lojas_select` só libera leitura para **admin ou gerente**. Se quem opera o PDV é `vendedor`, a query devolve `null` silenciosamente — e o PDV envia a cobrança sem split.
 
-- Quando um usuário se cadastra, um trigger no banco já cria automaticamente uma loja chamada **"Minha Loja"** vinculada a ele.
-- O usuário vai direto para `/dashboard`, sem nunca configurar nome real, telefone, CNPJ ou logo.
+### 2. Webhook Pagar.me não está chegando
+- A tabela `webhook_logs` está completamente vazia, mesmo após 41 vendas POS hoje.
+- Como `charge.authorized` nunca chega na edge function, a captura automática (com split) nunca é disparada → as vendas ficam eternamente `pendente`.
+- Você confirmou que o webhook está cadastrado no painel, então o problema é configuração externa (URL, eventos, ambiente ou credenciais Basic Auth) — não dá pra corrigir só por código. Preciso de um diagnóstico ao vivo.
 
-## Proposta
+---
 
-### 1. Marcar quando o onboarding foi concluído
-Adicionar uma coluna `onboarding_completo` (boolean, default `false`) na tabela `lojas`. Assim conseguimos diferenciar loja recém-criada de loja já configurada — sem depender de heurísticas frágeis (tipo "nome = Minha Loja").
+## Plano
 
-### 2. Nova página `/onboarding`
-Página de boas-vindas com um formulário em **2 passos curtos**:
+### Parte A — Expor `pagarme_recipient_id` a qualquer membro da loja (corrige o split)
 
-**Passo 1 — Identidade da loja**
-- Nome da loja *(obrigatório)*
-- Telefone / WhatsApp
-- E-mail de contato (pré-preenchido com o do usuário)
+Criar uma função SQL `SECURITY DEFINER` que retorna apenas o recipient da loja do usuário logado, e usá-la no PDV.
 
-**Passo 2 — Dados opcionais**
-- CNPJ (com máscara)
-- Logo da loja (upload — usa o bucket `product-images` ou novo bucket `logos`)
-- Botão "Concluir e ir para o painel"
-
-Ao concluir: salva os campos em `lojas`, marca `onboarding_completo = true` e redireciona para `/dashboard`.
-Botão "Pular por enquanto" também marca como concluído (para não bloquear quem quer explorar antes).
-
-### 3. Guarda de rota (redirect automático)
-No `AppLayout` (que já protege as rotas autenticadas), adicionar uma checagem extra: se `lojas.onboarding_completo === false`, redirecionar para `/onboarding`. A página `/onboarding` em si fica fora desse redirect para evitar loop.
-
-### 4. Visual
-Mesmo padrão do `/login` — painel lateral com a marca **LojaHub** e o formulário ao lado. Indicador de progresso "Passo 1 de 2 / Passo 2 de 2". Totalmente responsivo (mobile-first, já que o preview atual é 390px).
-
-## Detalhes técnicos
-
-- **Migration:** `ALTER TABLE public.lojas ADD COLUMN onboarding_completo boolean NOT NULL DEFAULT false;`
-- **Arquivos novos:**
-  - `src/pages/Onboarding.tsx` — página com os 2 passos.
-  - Rota `/onboarding` em `src/App.tsx`.
-- **Arquivos editados:**
-  - `src/components/AppLayout.tsx` — após validar sessão, buscar `lojas.onboarding_completo` via `get_loja_id()` e redirecionar se falso.
-- **Upload do logo:** reaproveitar o bucket público `product-images` numa pasta `logos/{loja_id}/...` (evita criar bucket novo); salvar a URL em `lojas.logo_url`.
-- **Validação:** zod no client (nome obrigatório, telefone formato BR opcional, CNPJ opcional com checagem de 14 dígitos).
-- **Mensagens:** todas em PT-BR, seguindo o padrão dos toasts já usados no app.
-
-## Fluxo final
-
-```text
-signup/login → AppLayout busca loja
-                ├── onboarding_completo = false → /onboarding
-                │       ├── Passo 1 → Passo 2 → salva → /dashboard
-                │       └── "Pular" → marca concluído → /dashboard
-                └── onboarding_completo = true  → /dashboard
+```sql
+create or replace function public.get_loja_pagarme_recipient()
+returns text
+language sql stable security definer set search_path = public
+as $$
+  select pagarme_recipient_id from public.lojas where id = public.get_loja_id();
+$$;
+grant execute on function public.get_loja_pagarme_recipient() to authenticated;
 ```
+
+Em `src/pages/Vendas.tsx` (linha 141 / 144), trocar a leitura direta de `lojas` por:
+```ts
+const { data: recipient } = await supabase.rpc("get_loja_pagarme_recipient");
+setSellerRecipientId((recipient as string | null) ?? null);
+```
+
+Isso garante que **vendedor, gerente e admin** todos enxerguem o recipient — sem afetar a RLS atual de `lojas` (que continua restrita a admin/gerente para o resto dos campos).
+
+### Parte B — Diagnóstico do webhook (sem mudança de código)
+
+Vou rodar duas verificações comigo dirigindo e te peço para conferir no painel Pagar.me:
+
+1. **Pingar a função com Basic Auth correto** via `curl_edge_functions`, simulando um payload `charge.authorized`. Se a função responder 200 e gravar em `webhook_logs`, confirmamos que a edge function está saudável e que o problema é exclusivamente no painel.
+2. **Conferir no painel Pagar.me** (você):
+   - URL exata: `https://ujopuhxmmykakxdjemlw.supabase.co/functions/v1/pagarme-webhook`
+   - Eventos marcados: `charge.authorized`, `charge.paid`, `charge.payment_failed`, `order.paid`, `order.payment_failed`
+   - Tipo de autenticação: **Basic Auth** com `PAGARME_WEBHOOK_USER` / `PAGARME_WEBHOOK_PASS` exatamente iguais aos secrets do projeto.
+   - Ambiente correto (a chave `PAGARME_SECRET_KEY` é produção ou sandbox? O webhook precisa estar no mesmo ambiente).
+   - Ver a aba de **histórico de entregas** do webhook — se o Pagar.me está tentando enviar e levando erro (4xx/5xx), isso prova de qual lado está o problema.
+
+Depois desse diagnóstico, faço a próxima venda de teste e validamos:
+- `webhook_logs` recebe `charge.authorized`
+- Captura automática roda (`captureRes.ok`)
+- `vendas.pagamento_status` vira `pago`, `split_rules` populado
+
+### Não faz parte deste plano
+- Mexer em `create-pos-order` ou no webhook (o código deles está correto; só falta o recipient chegar e o webhook ser entregue).
+- Adicionar botão "Gerar PIX" no PDV (assunto separado da mensagem anterior, podemos retomar depois).
+
+---
+
+## Resumo dos arquivos tocados
+- **Nova migração**: cria `public.get_loja_pagarme_recipient()` + grant.
+- **`src/pages/Vendas.tsx`**: troca leitura de `lojas` por `rpc("get_loja_pagarme_recipient")`.
