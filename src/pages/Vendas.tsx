@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VendaSucessoModal, type VendaConcluida } from "@/components/VendaSucessoModal";
 import { PagarmeCheckoutModal, type PagarmeMethod } from "@/components/PagarmeCheckoutModal";
+import { PDVMaquininhaModal } from "@/components/PDVMaquininhaModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   AlertDialog,
