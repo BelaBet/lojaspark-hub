@@ -7,6 +7,7 @@ import { brl } from "@/lib/format";
 import { Check, Plus, Printer, Eye, User as UserIcon, QrCode } from "lucide-react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
+import { cn } from "@/lib/utils";
 
 export type VendaConcluida = {
   venda_id: string;
