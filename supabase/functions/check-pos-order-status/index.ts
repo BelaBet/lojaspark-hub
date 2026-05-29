@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // RLS já garante que o usuário só vê vendas da sua loja
     const { data: venda, error: vErr } = await supabase
       .from("vendas")
-      .select("id, pagarme_order_id, pagamento_status, status, device_serial")
+      .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel")
       .eq("id", venda_id)
       .maybeSingle();
     if (vErr || !venda) return json({ error: "Venda não encontrada" }, 404);
@@ -71,11 +71,54 @@ Deno.serve(async (req) => {
     const paidAtPagarme: string | undefined =
       charge?.paid_at ?? charge?.last_transaction?.paid_at ?? undefined;
 
+    // ── Fallback de captura quando o webhook charge.authorized não chegou ────
+    // Se a charge está "authorized" (cliente pagou na maquininha mas ainda não
+    // foi capturada), forçamos a captura com split aqui — assim o fluxo POS
+    // funciona mesmo se o webhook estiver bloqueado/desconfigurado.
+    let captureAttempted = false;
+    let captureOk = false;
+    if (
+      chargeStatus === "authorized" &&
+      chargeId &&
+      venda.payment_channel === "pos"
+    ) {
+      captureAttempted = true;
+      const amount = (charge?.amount as number | undefined) ?? venda.base_amount;
+      const splitRules = venda.split_rules as unknown[] | null;
+      const captureUrl =
+        splitRules && Array.isArray(splitRules) && splitRules.length > 0
+          ? `${PAGARME_BASE_URL}/charges/${chargeId}/capture-with-split-rules`
+          : `${PAGARME_BASE_URL}/charges/${chargeId}/capture`;
+      const capturePayload =
+        splitRules && Array.isArray(splitRules) && splitRules.length > 0
+          ? { amount, split: splitRules }
+          : { amount: String(amount) };
+      const captureRes = await fetch(captureUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(secretKey + ":")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(capturePayload),
+      });
+      const captureData = await captureRes.json();
+      captureOk = captureRes.ok;
+      if (captureRes.ok) {
+        console.log("Captura fallback OK:", captureData?.id, captureData?.status);
+      } else {
+        console.error("Captura fallback erro:", captureData);
+      }
+    }
+
     // Mapeia status do Pagar.me → status interno
     let novoPagamento: string | null = null;
     let novoStatus: string | null = null;
     let setPaidAt = false;
-    if (chargeStatus === "paid" || orderStatus === "paid") {
+    if (
+      chargeStatus === "paid" ||
+      orderStatus === "paid" ||
+      (captureAttempted && captureOk)
+    ) {
       novoPagamento = "pago";
       novoStatus = "concluida";
       setPaidAt = true;
@@ -107,6 +150,12 @@ Deno.serve(async (req) => {
 
     if (Object.keys(updates).length > 1) {
       await admin.from("vendas").update(updates).eq("id", venda_id);
+      if (venda.device_serial) {
+        await admin
+          .from("maquininhas")
+          .update({ ultima_atividade: new Date().toISOString() })
+          .eq("serial", venda.device_serial);
+      }
     }
 
     return json({
@@ -116,6 +165,8 @@ Deno.serve(async (req) => {
       charge_id: chargeId ?? null,
       pagamento_status: novoPagamento ?? venda.pagamento_status,
       status: novoStatus ?? venda.status,
+      capture_attempted: captureAttempted,
+      capture_ok: captureOk,
       synced: Object.keys(updates).length > 1,
     });
   } catch (err) {

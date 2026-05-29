@@ -99,8 +99,20 @@ export function usePOSPayment() {
     stopPolling();
     const { intervalMs = 3000, maxAttempts = 80, onPaid, onFailed, onTimeout } = options ?? {};
     let attempts = 0;
+    // A cada N polls, força um sync direto com o Pagar.me (fallback caso o
+    // webhook não esteja chegando). 4 × 3s = ~12s entre syncs.
+    const SYNC_EVERY = 4;
     pollingRef.current = setInterval(async () => {
       attempts++;
+      if (attempts % SYNC_EVERY === 0) {
+        try {
+          await supabase.functions.invoke("check-pos-order-status", {
+            body: { venda_id },
+          });
+        } catch (_err) {
+          // sync é best-effort; o poll do banco continua abaixo
+        }
+      }
       const { data } = await supabase
         .from("vendas")
         .select("pagamento_status")
