@@ -11,14 +11,17 @@ const corsHeaders = {
 
 const PLATFORM_BASE_RATE = 0.0096;
 const INSTALLMENT_RATE = 0.011;
+const STONE_MDR_RATE = 0.0204;
+const BASE_FEE_RATE = PLATFORM_BASE_RATE + STONE_MDR_RATE; // 3,00% repassado ao cliente
 
 function calculateSplit(baseAmount: number, installments: number, passToCustomer: boolean) {
-  const surchargeRate = installments > 1 ? INSTALLMENT_RATE * (installments - 1) : 0;
-  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
-  const totalAmount =
-    passToCustomer && installments > 1
-      ? baseAmount + Math.round(baseAmount * surchargeRate)
-      : baseAmount;
+  const installmentRate = installments > 1 ? INSTALLMENT_RATE * (installments - 1) : 0;
+  const platformRate = PLATFORM_BASE_RATE + installmentRate;
+  const baseFee = passToCustomer ? Math.round(baseAmount * BASE_FEE_RATE) : 0;
+  const installmentSurcharge = passToCustomer && installments > 1
+    ? Math.round(baseAmount * installmentRate)
+    : 0;
+  const totalAmount = baseAmount + baseFee + installmentSurcharge;
   const platformAmount = Math.round(totalAmount * platformRate);
   const sellerAmount = totalAmount - platformAmount;
   return { totalAmount, platformAmount, sellerAmount };

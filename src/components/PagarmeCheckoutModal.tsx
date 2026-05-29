@@ -25,6 +25,7 @@ import {
   getInstallmentTable,
   INSTALLMENT_RATE,
   STONE_MDR_RATE,
+  BASE_FEE_RATE,
 } from "@/lib/pagarme-split";
 
 export type PagarmeMethod = "pix" | "credit_card";
@@ -357,10 +358,18 @@ export function PagarmeCheckoutModal({
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="num">{brl(amountCents / 100)}</span>
                 </div>
+                {split.baseFeeAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Taxas ({(BASE_FEE_RATE * 100).toFixed(2)}%)
+                    </span>
+                    <span className="num">+ {brl(split.baseFeeAmount / 100)}</span>
+                  </div>
+                )}
                 {split.installmentSurcharge > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      Acréscimo ({(INSTALLMENT_RATE * (installments - 1) * 100).toFixed(2)}%)
+                      Parcelamento ({(INSTALLMENT_RATE * (installments - 1) * 100).toFixed(2)}%)
                     </span>
                     <span className="num">+ {brl(split.installmentSurcharge / 100)}</span>
                   </div>
