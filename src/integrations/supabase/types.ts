@@ -703,6 +703,57 @@ export type Database = {
           },
         ]
       }
+      webhook_logs: {
+        Row: {
+          auth_ok: boolean | null
+          created_at: string
+          error: string | null
+          event_type: string | null
+          headers: Json | null
+          http_status: number | null
+          id: string
+          ip: string | null
+          pagarme_charge_id: string | null
+          pagarme_order_id: string | null
+          payload: Json | null
+          response: Json | null
+          source: string
+          venda_id: string | null
+        }
+        Insert: {
+          auth_ok?: boolean | null
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          headers?: Json | null
+          http_status?: number | null
+          id?: string
+          ip?: string | null
+          pagarme_charge_id?: string | null
+          pagarme_order_id?: string | null
+          payload?: Json | null
+          response?: Json | null
+          source?: string
+          venda_id?: string | null
+        }
+        Update: {
+          auth_ok?: boolean | null
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          headers?: Json | null
+          http_status?: number | null
+          id?: string
+          ip?: string | null
+          pagarme_charge_id?: string | null
+          pagarme_order_id?: string | null
+          payload?: Json | null
+          response?: Json | null
+          source?: string
+          venda_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       lojas_publico: {
