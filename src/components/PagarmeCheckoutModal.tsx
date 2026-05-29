@@ -133,7 +133,17 @@ export function PagarmeCheckoutModal({
           pass_surcharge_to_customer: false,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            detail = body?.error ?? body?.details?.message ?? JSON.stringify(body);
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
       setPix(data as PixResult);
     } catch (e: any) {
@@ -169,7 +179,17 @@ export function PagarmeCheckoutModal({
           },
         },
       });
-      if (error) throw error;
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            detail = body?.error ?? body?.details?.message ?? JSON.stringify(body);
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
       if (data?.error) throw new Error(data.error);
       const status = data?.charge_status ?? data?.status;
       const chargedReais = (data?.amount ?? amountCents) / 100;
