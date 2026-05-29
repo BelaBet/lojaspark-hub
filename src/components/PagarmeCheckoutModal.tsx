@@ -25,6 +25,7 @@ import {
   getInstallmentTable,
   INSTALLMENT_RATE,
   STONE_MDR_RATE,
+  BASE_FEE_RATE,
 } from "@/lib/pagarme-split";
 
 export type PagarmeMethod = "pix" | "credit_card";
