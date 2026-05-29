@@ -96,6 +96,11 @@ const Vendas = () => {
   const [pagarmeOpen, setPagarmeOpen] = useState(false);
   const [pagarmeMethod, setPagarmeMethod] = useState<PagarmeMethod>("pix");
   const [sellerRecipientId, setSellerRecipientId] = useState<string | null>(null);
+  const [cobrarNaMaquininha, setCobrarNaMaquininha] = useState(false);
+  const [posOpen, setPosOpen] = useState(false);
+  const [posVendaId, setPosVendaId] = useState<string | null>(null);
+  const [posDefaultType, setPosDefaultType] = useState<"credit" | "debit">("credit");
+  const [vendaPendente, setVendaPendente] = useState<{ id: string; created_at: string } | null>(null);
 
   // Foco automático
   useEffect(() => {
@@ -367,6 +372,12 @@ const Vendas = () => {
       toast.error("Valor recebido menor que o total");
       return;
     }
+    if (cobrarNaMaquininha && (pagamento === "cartao_debito" || pagamento === "cartao_credito")) {
+      setPosDefaultType(pagamento === "cartao_debito" ? "debit" : "credit");
+      const vendaId = await criarVendaPendentePOS();
+      if (vendaId) { setPosVendaId(vendaId); setPosOpen(true); }
+      return;
+    }
     // Pagamentos online via Pagar.me
     if (pagamento === "pix" || pagamento === "cartao_credito") {
       setPagarmeMethod(pagamento === "pix" ? "pix" : "credit_card");
@@ -374,6 +385,36 @@ const Vendas = () => {
       return;
     }
     await persistVenda();
+  };
+
+  const criarVendaPendentePOS = async (): Promise<string | null> => {
+    setFinalizando(true);
+    const { data: lojaIdData } = await supabase.rpc("get_loja_id");
+    const loja_id = lojaIdData as string | null;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!loja_id) { setFinalizando(false); toast.error("Não foi possível identificar sua loja."); return null; }
+    const { data: vendaIns, error: vErr } = await supabase
+      .from("vendas")
+      .insert({
+        loja_id,
+        cliente_id: cliente?.id ?? null,
+        vendedor_id: userData.user?.id ?? null,
+        total, desconto,
+        forma_pagamento: pagamento,
+        status: "concluida",
+        pagamento_status: "pendente",
+        payment_channel: "pos",
+      })
+      .select("id, created_at").single();
+    if (vErr || !vendaIns) { setFinalizando(false); toast.error(traduzErro(vErr, "Erro ao registrar venda")); return null; }
+    const itens = cart.map((i) => ({
+      venda_id: vendaIns.id, produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit, desconto: 0,
+    }));
+    const { error: iErr } = await supabase.from("venda_itens").insert(itens);
+    if (iErr) { setFinalizando(false); toast.error(traduzErro(iErr)); return null; }
+    setFinalizando(false);
+    setVendaPendente({ id: vendaIns.id, created_at: vendaIns.created_at });
+    return vendaIns.id;
   };
 
   const persistVenda = async (pagarmeInfo?: {
