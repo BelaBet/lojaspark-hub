@@ -59,6 +59,18 @@ export const ProductPhotosInput = ({ value, onChange, max = 5 }: Props) => {
       toast.error("Sessão expirada.");
       return;
     }
+    const { data: lu } = await supabase
+      .from("loja_usuarios")
+      .select("loja_id")
+      .eq("user_id", userData.user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!lu?.loja_id) {
+      setUploading(false);
+      toast.error("Loja não encontrada.");
+      return;
+    }
     let added = 0;
     for (const file of arr) {
       if (photos.length + added >= max) break;
@@ -71,7 +83,7 @@ export const ProductPhotosInput = ({ value, onChange, max = 5 }: Props) => {
         continue;
       }
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${userData.user.id}/${crypto.randomUUID()}.${ext}`;
+      const path = `${lu.loja_id}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from(BUCKET).upload(path, file, { cacheControl: "3600", upsert: false });
       if (error) {
         toast.error(traduzErro(error));
@@ -107,7 +119,15 @@ export const ProductPhotosInput = ({ value, onChange, max = 5 }: Props) => {
       const blob = await (await fetch(imageData)).blob();
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Sessão expirada.");
-      const path = `${userData.user.id}/ai-${crypto.randomUUID()}.png`;
+      const { data: lu } = await supabase
+        .from("loja_usuarios")
+        .select("loja_id")
+        .eq("user_id", userData.user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (!lu?.loja_id) throw new Error("Loja não encontrada.");
+      const path = `${lu.loja_id}/ai-${crypto.randomUUID()}.png`;
       const { error: upErr } = await supabase.storage.from(BUCKET)
         .upload(path, blob, { contentType: "image/png", upsert: false });
       if (upErr) throw upErr;
