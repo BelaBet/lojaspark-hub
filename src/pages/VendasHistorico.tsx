@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { ArrowLeft, ShoppingBag, Printer } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Printer, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ type Venda = {
   status: string;
   cliente_id: string | null;
   cliente?: { nome: string } | null;
+  pagamento_status?: string | null;
+  pagarme_order_id?: string | null;
 };
 
 type Detalhe = Venda & {
@@ -65,7 +67,7 @@ const VendasHistorico = () => {
       setLoading(true);
       let query = supabase
         .from("vendas")
-        .select("id,created_at,total,desconto,forma_pagamento,status,cliente_id, cliente:clientes(nome)")
+        .select("id,created_at,total,desconto,forma_pagamento,status,pagamento_status,pagarme_order_id,cliente_id, cliente:clientes(nome)")
         .order("created_at", { ascending: false })
         .limit(500);
       if (periodo !== "tudo") {
@@ -94,7 +96,7 @@ const VendasHistorico = () => {
     const { data, error } = await supabase
       .from("vendas")
       .select(`
-        id,created_at,total,desconto,forma_pagamento,status,cliente_id,
+        id,created_at,total,desconto,forma_pagamento,status,pagamento_status,pagarme_order_id,cliente_id,
         cliente:clientes(nome),
         venda_itens(id,quantidade,preco_unit,subtotal, produto:produtos(nome))
       `)
@@ -107,6 +109,51 @@ const VendasHistorico = () => {
       setDetalhe(data as unknown as Detalhe);
     }
     setLoadingDetalhe(false);
+  };
+
+  const [sincronizando, setSincronizando] = useState<string | null>(null);
+  const consultarPagarme = async (vendaId: string) => {
+    setSincronizando(vendaId);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-pos-order-status", {
+        body: { venda_id: vendaId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const pago = data?.pagamento_status === "pago";
+      toast.success(
+        pago
+          ? "Pagamento confirmado!"
+          : `Status no Pagar.me: ${data?.charge_status ?? data?.order_status ?? "—"}`,
+      );
+      // Atualiza linha local
+      setVendas((prev) =>
+        prev.map((v) =>
+          v.id === vendaId
+            ? {
+                ...v,
+                pagamento_status: data?.pagamento_status ?? v.pagamento_status,
+                status: data?.status ?? v.status,
+              }
+            : v,
+        ),
+      );
+      if (detalhe?.id === vendaId) {
+        setDetalhe((d) =>
+          d
+            ? {
+                ...d,
+                pagamento_status: data?.pagamento_status ?? d.pagamento_status,
+                status: data?.status ?? d.status,
+              }
+            : d,
+        );
+      }
+    } catch (e) {
+      toast.error(traduzErro(e, "Falha ao consultar Pagar.me"));
+    } finally {
+      setSincronizando(null);
+    }
   };
 
   return (
@@ -177,12 +224,16 @@ const VendasHistorico = () => {
                     <th className="px-5 py-3 font-medium">Cliente</th>
                     <th className="px-5 py-3 font-medium">Pagamento</th>
                     <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Pgto.</th>
                     <th className="px-5 py-3 font-medium text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {vendas.map((v) => {
                     const dt = new Date(v.created_at);
+                    const ps = v.pagamento_status ?? "pago";
+                    const podeConsultar =
+                      !!v.pagarme_order_id && (ps === "pendente" || ps === "falhou");
                     return (
                       <tr
                         key={v.id}
@@ -213,6 +264,42 @@ const VendasHistorico = () => {
                           >
                             {v.status}
                           </Badge>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "mono text-[10px] border-0",
+                                ps === "pago" && "bg-primary-soft text-primary",
+                                ps === "pendente" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+                                ps === "falhou" && "bg-destructive/10 text-destructive",
+                              )}
+                            >
+                              {ps}
+                            </Badge>
+                            {podeConsultar && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                disabled={sincronizando === v.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  consultarPagarme(v.id);
+                                }}
+                                title="Consultar status no Pagar.me"
+                              >
+                                <RefreshCw
+                                  className={cn(
+                                    "h-3.5 w-3.5",
+                                    sincronizando === v.id && "animate-spin",
+                                  )}
+                                />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-3 text-right num font-bold">{brl(v.total)}</td>
                       </tr>
@@ -291,7 +378,26 @@ const VendasHistorico = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
+                {detalhe.pagarme_order_id &&
+                  (detalhe.pagamento_status === "pendente" ||
+                    detalhe.pagamento_status === "falhou") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      disabled={sincronizando === detalhe.id}
+                      onClick={() => consultarPagarme(detalhe.id)}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-3.5 w-3.5 mr-1.5",
+                          sincronizando === detalhe.id && "animate-spin",
+                        )}
+                      />
+                      Consultar Pagar.me
+                    </Button>
+                  )}
                 <Link to={`/vendas/${detalhe.id}/recibo`} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="h-9">
                     <Printer className="h-3.5 w-3.5 mr-1.5" /> Ver / imprimir recibo
