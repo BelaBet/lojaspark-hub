@@ -915,16 +915,26 @@ const Vendas = () => {
               </div>
 
               {(pagamento === "cartao_debito" || pagamento === "cartao_credito") && (
-                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={cobrarNaMaquininha}
-                    onChange={(e) => setCobrarNaMaquininha(e.target.checked)}
-                    className="h-4 w-4 accent-primary"
-                  />
-                  <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
-                  Cobrar na maquininha (POS)
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={cobrarNaMaquininha}
+                      onChange={(e) => setCobrarNaMaquininha(e.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
+                    Cobrar na maquininha (POS)
+                  </label>
+                  {cobrarNaMaquininha && !sellerRecipientId && (
+                    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                      <strong>Split desativado:</strong> a loja ainda não tem <code className="mono">Recipient ID</code> do Pagar.me configurado. O valor será creditado integralmente na conta da plataforma.{" "}
+                      <Link to="/configuracoes" className="underline font-semibold">
+                        Configurar agora
+                      </Link>
+                    </div>
+                  )}
+                </div>
               )}
 
               {pagamento === "dinheiro" && (
