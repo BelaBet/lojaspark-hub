@@ -224,12 +224,16 @@ const VendasHistorico = () => {
                     <th className="px-5 py-3 font-medium">Cliente</th>
                     <th className="px-5 py-3 font-medium">Pagamento</th>
                     <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Pgto.</th>
                     <th className="px-5 py-3 font-medium text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {vendas.map((v) => {
                     const dt = new Date(v.created_at);
+                    const ps = v.pagamento_status ?? "pago";
+                    const podeConsultar =
+                      !!v.pagarme_order_id && (ps === "pendente" || ps === "falhou");
                     return (
                       <tr
                         key={v.id}
@@ -260,6 +264,42 @@ const VendasHistorico = () => {
                           >
                             {v.status}
                           </Badge>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "mono text-[10px] border-0",
+                                ps === "pago" && "bg-primary-soft text-primary",
+                                ps === "pendente" && "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+                                ps === "falhou" && "bg-destructive/10 text-destructive",
+                              )}
+                            >
+                              {ps}
+                            </Badge>
+                            {podeConsultar && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                disabled={sincronizando === v.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  consultarPagarme(v.id);
+                                }}
+                                title="Consultar status no Pagar.me"
+                              >
+                                <RefreshCw
+                                  className={cn(
+                                    "h-3.5 w-3.5",
+                                    sincronizando === v.id && "animate-spin",
+                                  )}
+                                />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-5 py-3 text-right num font-bold">{brl(v.total)}</td>
                       </tr>
