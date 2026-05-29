@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/AppLayout";
-import { Shield, Search, ExternalLink, Building2 } from "lucide-react";
+import { Shield, Search, ExternalLink, Building2, Webhook } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 type Loja = {
@@ -85,6 +86,14 @@ const Admin = () => {
             <span className="text-2xl font-bold text-foreground">{lojas.length}</span> total
           </div>
         </header>
+
+        <div>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/admin/webhooks">
+              <Webhook className="h-4 w-4 mr-1.5" /> Auditoria de webhooks
+            </Link>
+          </Button>
+        </div>
 
         <div className="relative max-w-md">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
