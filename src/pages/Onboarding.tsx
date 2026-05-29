@@ -113,7 +113,7 @@ const Onboarding = () => {
     }
     setUploadingLogo(true);
     const ext = file.name.split(".").pop() || "png";
-    const path = `logos/${lojaId}/${Date.now()}.${ext}`;
+    const path = `${lojaId}/logos/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true });
     if (error) {
       setUploadingLogo(false);
