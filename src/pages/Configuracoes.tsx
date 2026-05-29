@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Save, Settings, Store, CreditCard, ExternalLink } from "lucide-react";
+import { MaquininhasSection } from "@/components/configuracoes/MaquininhasSection";
 
 type LojaForm = {
   nome: string;
@@ -257,6 +258,9 @@ export default function Configuracoes() {
                 </a>
               </div>
             </Card>
+
+            {/* Maquininhas */}
+            <MaquininhasSection canEdit={canEdit} />
 
             <div className="flex justify-end gap-2 sticky bottom-4">
               <Button
