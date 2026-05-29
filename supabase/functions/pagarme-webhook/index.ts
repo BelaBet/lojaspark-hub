@@ -30,36 +30,86 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
+  const supabaseLog = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("cf-connecting-ip") ??
+    null;
+  const headersObj: Record<string, string> = {};
+  req.headers.forEach((v, k) => {
+    // redacta authorization para não vazar credencial
+    headersObj[k] = k.toLowerCase() === "authorization" ? "[redacted]" : v;
+  });
+  const rawBody = await req.text();
+  let parsedPayload: unknown = null;
+  try {
+    parsedPayload = rawBody ? JSON.parse(rawBody) : null;
+  } catch {
+    parsedPayload = { _raw: rawBody };
+  }
+
+  const logEntry: Record<string, unknown> = {
+    source: "pagarme",
+    ip,
+    headers: headersObj,
+    payload: parsedPayload,
+  };
+
+  const finish = async (
+    status: number,
+    body: BodyInit,
+    extra: Record<string, unknown> = {},
+    responseHeaders: HeadersInit = { ...corsHeaders, "Content-Type": "application/json" },
+  ) => {
+    try {
+      await supabaseLog.from("webhook_logs").insert({
+        ...logEntry,
+        ...extra,
+        http_status: status,
+      });
+    } catch (e) {
+      console.error("Falha ao gravar webhook_logs:", e);
+    }
+    return new Response(body, { status, headers: responseHeaders });
+  };
+
   try {
     // ─── 1. Basic Auth ───────────────────────────────────────────────────────
     const expectedUser = Deno.env.get("PAGARME_WEBHOOK_USER");
     const expectedPass = Deno.env.get("PAGARME_WEBHOOK_PASS");
     if (!expectedUser || !expectedPass) {
       console.error("PAGARME_WEBHOOK_USER/PASS não configurados");
-      return new Response("Server not configured", { status: 500, headers: corsHeaders });
+      return finish(500, "Server not configured", { auth_ok: false, error: "missing env" }, corsHeaders);
     }
 
     const authHeader = req.headers.get("authorization") ?? "";
-    if (!authHeader.toLowerCase().startsWith("basic ")) return unauthorized();
+    if (!authHeader.toLowerCase().startsWith("basic ")) {
+      return finish(401, JSON.stringify({ error: "Unauthorized" }), { auth_ok: false, error: "no basic header" });
+    }
     let decoded = "";
     try {
       decoded = atob(authHeader.slice(6).trim());
     } catch {
-      return unauthorized("Invalid auth");
+      return finish(401, JSON.stringify({ error: "Invalid auth" }), { auth_ok: false, error: "decode failed" });
     }
     const sep = decoded.indexOf(":");
     const user = sep >= 0 ? decoded.slice(0, sep) : decoded;
     const pass = sep >= 0 ? decoded.slice(sep + 1) : "";
     if (user !== expectedUser || pass !== expectedPass) {
       console.warn("Credenciais Basic inválidas no webhook Pagar.me");
-      return unauthorized();
+      return finish(401, JSON.stringify({ error: "Unauthorized" }), { auth_ok: false, error: "bad credentials" });
     }
 
     // ─── 2. Parse payload ────────────────────────────────────────────────────
-    const payload = await req.json();
+    const payload = parsedPayload as any;
     const eventType: string = payload?.type ?? "unknown";
     const data = payload?.data ?? {};
     console.log(`[pagarme-webhook] ${eventType} id=${data?.id} status=${data?.status}`);
+
+    logEntry.event_type = eventType;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -73,8 +123,10 @@ Deno.serve(async (req) => {
       const orderId = data?.order_id as string | undefined;
       const chargeAmt = data?.amount as number | undefined;
       if (!chargeId || !orderId) {
-        return new Response("ok", { status: 200, headers: corsHeaders });
+        return finish(200, "ok", { auth_ok: true, error: "missing chargeId/orderId" }, corsHeaders);
       }
+      logEntry.pagarme_charge_id = chargeId;
+      logEntry.pagarme_order_id = orderId;
 
       // Busca a venda correspondente
       const { data: venda } = await supabase
@@ -82,6 +134,7 @@ Deno.serve(async (req) => {
         .select("id, split_rules, device_serial, base_amount, payment_channel")
         .eq("pagarme_order_id", orderId)
         .maybeSingle();
+      if (venda?.id) logEntry.venda_id = venda.id;
 
       // Guarda charge_id desde já
       await supabase
@@ -121,6 +174,7 @@ Deno.serve(async (req) => {
         } else {
           console.log("Captura automática OK:", captureData.id, captureData.status);
         }
+        (logEntry.response as unknown) = { capture: { ok: captureRes.ok, status: captureData?.status, id: captureData?.id } };
 
         if (venda.device_serial) {
           await supabase
@@ -130,16 +184,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response("ok", { status: 200, headers: corsHeaders });
+      return finish(200, "ok", { auth_ok: true }, corsHeaders);
     }
 
     const orderId: string | undefined = data?.id ?? data?.order_id;
     if (!orderId) {
-      return new Response(JSON.stringify({ received: true, ignored: "no order id" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return finish(200, JSON.stringify({ received: true, ignored: "no order id" }), { auth_ok: true });
     }
+    logEntry.pagarme_order_id = data?.order_id ?? data?.id;
+    if (data?.id && data?.order_id) logEntry.pagarme_charge_id = data.id;
 
     // ─── 3. Mapeia evento para status interno da venda ───────────────────────
     let novoStatus: string | null = null;
@@ -163,11 +216,7 @@ Deno.serve(async (req) => {
     }
 
     if (!novoStatus && !novoPagamentoStatus) {
-      // Evento que não nos interessa — apenas confirma recebimento
-      return new Response(JSON.stringify({ received: true, ignored: eventType }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return finish(200, JSON.stringify({ received: true, ignored: eventType }), { auth_ok: true });
     }
 
     // ─── 4. Atualiza venda no Supabase ───────────────────────────────────────
@@ -186,11 +235,12 @@ Deno.serve(async (req) => {
 
     if (dbError) {
       console.error("Erro ao atualizar venda:", dbError.message);
-      // Retorna 200 para evitar retry infinito; o erro está logado
+      logEntry.error = dbError.message;
     } else {
       console.log(
         `[pagarme-webhook] venda(s) atualizada(s): ${updated?.length ?? 0} → ${novoPagamentoStatus ?? novoStatus}`,
       );
+      if (updated?.[0]?.id) logEntry.venda_id = updated[0].id;
       // Atualiza atividade da maquininha se aplicável
       const serial = updated?.[0]?.device_serial;
       if (serial) {
@@ -201,20 +251,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(
+    return finish(
+      200,
       JSON.stringify({
         received: true,
         status: novoStatus,
         pagamento_status: novoPagamentoStatus,
         matched: updated?.length ?? 0,
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { auth_ok: true },
     );
   } catch (err) {
     console.error("Erro no webhook:", err);
-    return new Response(
+    return finish(
+      500,
       JSON.stringify({ error: err instanceof Error ? err.message : "Erro desconhecido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { error: err instanceof Error ? err.message : "unknown" },
     );
   }
 });
