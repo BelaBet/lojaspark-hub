@@ -410,6 +410,7 @@ const Vendas = () => {
         loja_id,
         cliente_id: cliente?.id ?? null,
         vendedor_id: userData.user?.id ?? null,
+        vendedor_nome: vendedorNome,
         total, desconto,
         forma_pagamento: pagamento,
         status: "concluida",
@@ -418,6 +419,9 @@ const Vendas = () => {
       })
       .select("id, created_at").single();
     if (vErr || !vendaIns) { setFinalizando(false); toast.error(traduzErro(vErr, "Erro ao registrar venda")); return null; }
+    // Atualiza recibo_url agora que temos o id
+    const reciboUrl = `${window.location.origin}/vendas/${vendaIns.id}/recibo`;
+    await supabase.from("vendas").update({ recibo_url: reciboUrl }).eq("id", vendaIns.id);
     const itens = cart.map((i) => ({
       venda_id: vendaIns.id, produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit, desconto: 0,
     }));
@@ -454,6 +458,7 @@ const Vendas = () => {
         loja_id,
         cliente_id: cliente?.id ?? null,
         vendedor_id: userData.user?.id ?? null,
+        vendedor_nome: vendedorNome,
         total,
         desconto,
         forma_pagamento: pagamento,
@@ -465,6 +470,7 @@ const Vendas = () => {
         seller_amount: pagarmeInfo?.seller_amount ?? null,
         installments: pagarmeInfo?.installments ?? null,
         seller_recipient_id: pagarmeInfo ? sellerRecipientId : null,
+        payment_channel: pagarmeInfo ? "online" : "manual",
       })
       .select("id, created_at")
       .single();
@@ -473,6 +479,8 @@ const Vendas = () => {
       toast.error(traduzErro(vErr, "Erro ao registrar venda"));
       return;
     }
+    const reciboUrl = `${window.location.origin}/vendas/${vendaIns.id}/recibo`;
+    await supabase.from("vendas").update({ recibo_url: reciboUrl }).eq("id", vendaIns.id);
 
     const itens = cart.map((i) => ({
       venda_id: vendaIns.id,
