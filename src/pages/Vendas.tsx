@@ -101,6 +101,17 @@ const Vendas = () => {
   const [posVendaId, setPosVendaId] = useState<string | null>(null);
   const [posDefaultType, setPosDefaultType] = useState<"credit" | "debit">("credit");
   const [vendaPendente, setVendaPendente] = useState<{ id: string; created_at: string } | null>(null);
+  const [vendedorNome, setVendedorNome] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const u = data.user;
+      if (!u) return;
+      const meta = (u.user_metadata ?? {}) as { full_name?: string; name?: string };
+      setVendedorNome(meta.full_name ?? meta.name ?? u.email ?? null);
+    })();
+  }, []);
 
   // Foco automático
   useEffect(() => {
@@ -494,6 +505,9 @@ const Vendas = () => {
       pagamento: PAGAMENTOS.find((p) => p.id === pagamento)?.label ?? pagamento,
       recebido: pagamento === "dinheiro" ? Number(recebido || 0) : null,
       troco: pagamento === "dinheiro" ? troco : null,
+      vendedor: vendedorNome,
+      status: pagarmeInfo ? (pagarmeInfo.paid ? "pago" : "pendente") : "pago",
+      canal: pagarmeInfo ? "online" : "manual",
     });
   };
 
@@ -1019,6 +1033,9 @@ const Vendas = () => {
             pagamento: (PAGAMENTOS.find((p) => p.id === pagamento)?.label ?? pagamento) +
               (posDefaultType === "credit" && info.installments > 1 ? ` ${info.installments}×` : "") + " · maquininha",
             recebido: null, troco: null,
+            vendedor: vendedorNome,
+            status: "pago",
+            canal: "pos",
           });
           setPosVendaId(null); setVendaPendente(null);
         }}
