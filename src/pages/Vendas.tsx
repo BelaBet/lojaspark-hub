@@ -17,7 +17,7 @@ import { brl } from "@/lib/format";
 import { Link } from "react-router-dom";
 import {
   Search, Plus, Minus, Trash2, Package, User, X, ShoppingCart,
-  Banknote, CreditCard, QrCode, History, Loader2, Check, ChevronsUpDown,
+  Banknote, CreditCard, QrCode, History, Loader2, Check, ChevronsUpDown, Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
