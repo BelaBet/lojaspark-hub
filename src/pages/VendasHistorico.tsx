@@ -378,7 +378,26 @@ const VendasHistorico = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-1">
+              <div className="flex flex-wrap justify-end gap-2 pt-1">
+                {detalhe.pagarme_order_id &&
+                  (detalhe.pagamento_status === "pendente" ||
+                    detalhe.pagamento_status === "falhou") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      disabled={sincronizando === detalhe.id}
+                      onClick={() => consultarPagarme(detalhe.id)}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-3.5 w-3.5 mr-1.5",
+                          sincronizando === detalhe.id && "animate-spin",
+                        )}
+                      />
+                      Consultar Pagar.me
+                    </Button>
+                  )}
                 <Link to={`/vendas/${detalhe.id}/recibo`} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" size="sm" className="h-9">
                     <Printer className="h-3.5 w-3.5 mr-1.5" /> Ver / imprimir recibo
