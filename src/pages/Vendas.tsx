@@ -384,6 +384,10 @@ const Vendas = () => {
       return;
     }
     if (cobrarNaMaquininha && (pagamento === "cartao_debito" || pagamento === "cartao_credito")) {
+      if (!sellerRecipientId) {
+        toast.error("Configure o Recipient ID da loja em Configurações antes de cobrar na maquininha.");
+        return;
+      }
       setPosDefaultType(pagamento === "cartao_debito" ? "debit" : "credit");
       const vendaId = await criarVendaPendentePOS();
       if (vendaId) { setPosVendaId(vendaId); setPosOpen(true); }
@@ -391,6 +395,10 @@ const Vendas = () => {
     }
     // Pagamentos online via Pagar.me
     if (pagamento === "pix" || pagamento === "cartao_credito") {
+      if (!sellerRecipientId) {
+        toast.error("Configure o Recipient ID da loja em Configurações antes de cobrar via Pagar.me.");
+        return;
+      }
       setPagarmeMethod(pagamento === "pix" ? "pix" : "credit_card");
       setPagarmeOpen(true);
       return;
@@ -927,8 +935,8 @@ const Vendas = () => {
                     Cobrar na maquininha (POS)
                   </label>
                   {cobrarNaMaquininha && !sellerRecipientId && (
-                    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-                      <strong>Split desativado:</strong> a loja ainda não tem <code className="mono">Recipient ID</code> do Pagar.me configurado. O valor será creditado integralmente na conta da plataforma.{" "}
+                    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                      <strong>Venda bloqueada:</strong> a loja ainda não tem <code className="mono">Recipient ID</code> do Pagar.me configurado, então o split não pode ser aplicado.{" "}
                       <Link to="/configuracoes" className="underline font-semibold">
                         Configurar agora
                       </Link>
