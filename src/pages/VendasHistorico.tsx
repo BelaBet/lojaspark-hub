@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { brl } from "@/lib/format";
-import { ArrowLeft, ShoppingBag, Printer } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Printer, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,8 @@ type Venda = {
   status: string;
   cliente_id: string | null;
   cliente?: { nome: string } | null;
+  pagamento_status?: string | null;
+  pagarme_order_id?: string | null;
 };
 
 type Detalhe = Venda & {
@@ -65,7 +67,7 @@ const VendasHistorico = () => {
       setLoading(true);
       let query = supabase
         .from("vendas")
-        .select("id,created_at,total,desconto,forma_pagamento,status,cliente_id, cliente:clientes(nome)")
+        .select("id,created_at,total,desconto,forma_pagamento,status,pagamento_status,pagarme_order_id,cliente_id, cliente:clientes(nome)")
         .order("created_at", { ascending: false })
         .limit(500);
       if (periodo !== "tudo") {
@@ -94,7 +96,7 @@ const VendasHistorico = () => {
     const { data, error } = await supabase
       .from("vendas")
       .select(`
-        id,created_at,total,desconto,forma_pagamento,status,cliente_id,
+        id,created_at,total,desconto,forma_pagamento,status,pagamento_status,pagarme_order_id,cliente_id,
         cliente:clientes(nome),
         venda_itens(id,quantidade,preco_unit,subtotal, produto:produtos(nome))
       `)
@@ -107,6 +109,51 @@ const VendasHistorico = () => {
       setDetalhe(data as unknown as Detalhe);
     }
     setLoadingDetalhe(false);
+  };
+
+  const [sincronizando, setSincronizando] = useState<string | null>(null);
+  const consultarPagarme = async (vendaId: string) => {
+    setSincronizando(vendaId);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-pos-order-status", {
+        body: { venda_id: vendaId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const pago = data?.pagamento_status === "pago";
+      toast.success(
+        pago
+          ? "Pagamento confirmado!"
+          : `Status no Pagar.me: ${data?.charge_status ?? data?.order_status ?? "—"}`,
+      );
+      // Atualiza linha local
+      setVendas((prev) =>
+        prev.map((v) =>
+          v.id === vendaId
+            ? {
+                ...v,
+                pagamento_status: data?.pagamento_status ?? v.pagamento_status,
+                status: data?.status ?? v.status,
+              }
+            : v,
+        ),
+      );
+      if (detalhe?.id === vendaId) {
+        setDetalhe((d) =>
+          d
+            ? {
+                ...d,
+                pagamento_status: data?.pagamento_status ?? d.pagamento_status,
+                status: data?.status ?? d.status,
+              }
+            : d,
+        );
+      }
+    } catch (e) {
+      toast.error(traduzErro(e, "Falha ao consultar Pagar.me"));
+    } finally {
+      setSincronizando(null);
+    }
   };
 
   return (
