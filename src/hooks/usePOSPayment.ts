@@ -29,7 +29,7 @@ export type POSOrderParams = {
   amount: number; // centavos (total já com acréscimo)
   customerName: string;
   customerEmail: string;
-  paymentType: "credit" | "debit";
+  paymentType: "credit" | "debit" | "pix";
   installments?: number;
   deviceSerial: string;
   sellerRecipientId?: string | null;

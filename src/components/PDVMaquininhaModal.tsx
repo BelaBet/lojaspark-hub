@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   open: boolean;
   amount: number; // reais (base sem acréscimo)
-  defaultPaymentType?: "credit" | "debit";
+  defaultPaymentType?: "credit" | "debit" | "pix";
   venda_id: string | null;
   customerName?: string;
   customerEmail?: string;
@@ -39,7 +39,7 @@ export function PDVMaquininhaModal({
     loadMaquininhas, setSelectedMachine, createPOSOrder, startPolling, reset,
   } = usePOSPayment();
 
-  const [paymentType, setPaymentType] = useState<"credit" | "debit">(defaultPaymentType);
+  const [paymentType, setPaymentType] = useState<"credit" | "debit" | "pix">(defaultPaymentType);
   const [installments, setInstallments] = useState(1);
 
   useEffect(() => {
@@ -106,21 +106,23 @@ export function PDVMaquininhaModal({
               <Label className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 Tipo de pagamento
               </Label>
-              <div className="grid grid-cols-2 gap-2 mt-1.5">
-                {(["credit", "debit"] as const).map((t) => (
+              <div className="grid grid-cols-3 gap-2 mt-1.5">
+                {(["credit", "debit", "pix"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => { setPaymentType(t); setInstallments(1); }}
                     className={cn(
-                      "rounded-lg border-2 px-3 py-3 text-sm flex items-center justify-center gap-2 transition-all",
+                      "rounded-lg border-2 px-2 py-3 text-xs flex flex-col items-center justify-center gap-1 transition-all",
                       paymentType === t
                         ? "border-primary bg-primary/10 text-primary font-semibold"
                         : "border-border hover:border-muted-foreground/30",
                     )}
                   >
-                    <CreditCard className="h-4 w-4" />
-                    {t === "credit" ? "Crédito" : "Débito"}
+                    {t === "pix" ? <span className="text-base font-black">PIX</span> : <CreditCard className="h-4 w-4" />}
+                    {t === "credit" && "Crédito"}
+                    {t === "debit" && "Débito"}
+                    {t === "pix" && <span className="text-[10px] text-muted-foreground">QR Code</span>}
                   </button>
                 ))}
               </div>
