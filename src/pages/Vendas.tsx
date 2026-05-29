@@ -892,6 +892,19 @@ const Vendas = () => {
                 </div>
               </div>
 
+              {(pagamento === "cartao_debito" || pagamento === "cartao_credito") && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={cobrarNaMaquininha}
+                    onChange={(e) => setCobrarNaMaquininha(e.target.checked)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
+                  Cobrar na maquininha (POS)
+                </label>
+              )}
+
               {pagamento === "dinheiro" && (
                 <div>
                   <label className="mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">
@@ -982,6 +995,32 @@ const Vendas = () => {
             total_amount: result.total_amount,
             installments: result.installments,
           });
+        }}
+      />
+
+      <PDVMaquininhaModal
+        open={posOpen}
+        amount={total}
+        defaultPaymentType={posDefaultType}
+        venda_id={posVendaId}
+        customerName={cliente?.nome}
+        customerEmail={cliente?.email ?? undefined}
+        sellerRecipientId={sellerRecipientId}
+        onClose={() => { setPosOpen(false); setPosVendaId(null); }}
+        onPaid={(info) => {
+          setPosOpen(false);
+          setSucesso({
+            venda_id: posVendaId ?? vendaPendente?.id ?? "",
+            created_at: vendaPendente?.created_at ?? new Date().toISOString(),
+            cliente: cliente?.nome ?? "Sem cliente",
+            itens: cart.map((i) => ({ nome: i.nome, quantidade: i.quantidade, preco_unit: i.preco_unit, subtotal: i.preco_unit * i.quantidade })),
+            subtotal, desconto,
+            total: info.total_amount / 100,
+            pagamento: (PAGAMENTOS.find((p) => p.id === pagamento)?.label ?? pagamento) +
+              (posDefaultType === "credit" && info.installments > 1 ? ` ${info.installments}×` : "") + " · maquininha",
+            recebido: null, troco: null,
+          });
+          setPosVendaId(null); setVendaPendente(null);
         }}
       />
 
