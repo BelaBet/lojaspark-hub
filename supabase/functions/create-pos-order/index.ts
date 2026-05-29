@@ -185,8 +185,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Atualiza venda com dados de cobrança (RLS — usuário é da loja) ───────
-    await supabase
+    // ── Atualiza venda com dados de cobrança via service role ────────────────
+    // (campos financeiros são protegidos pelo trigger vendas_protect_financial_fields;
+    //  vendedores não podem alterá-los pelo JWT — apenas o backend pode)
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await admin
       .from("vendas")
       .update({
         pagarme_order_id: data.id,
@@ -202,11 +208,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", venda_id);
 
-    // ── Atualiza última atividade da maquininha (service role p/ contornar policy de update) ──
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // ── Atualiza última atividade da maquininha ──────────────────────────────
     await admin
       .from("maquininhas")
       .update({ ultima_atividade: new Date().toISOString() })
