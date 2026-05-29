@@ -1,5 +1,6 @@
 // Edge function pública: cria pedido no Pagar.me (PIX, crédito ou débito) com split.
 // Secrets: PAGARME_SECRET_KEY, PAGARME_PLATFORM_RECIPIENT_ID.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
 
 const corsHeaders = {
@@ -86,6 +87,22 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth check — require valid Supabase JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
     const secretKey = Deno.env.get("PAGARME_SECRET_KEY");
     if (!secretKey) {
       return json({ error: "PAGARME_SECRET_KEY não configurada" }, 500);
