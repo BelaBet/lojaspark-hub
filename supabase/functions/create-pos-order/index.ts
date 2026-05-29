@@ -99,8 +99,12 @@ Deno.serve(async (req) => {
     if (!venda_id) return json({ error: "venda_id obrigatório" }, 400);
     if (!amount || amount <= 0) return json({ error: "amount inválido" }, 400);
     if (!device_serial) return json({ error: "device_serial obrigatório" }, 400);
-    if (payment_type !== "credit" && payment_type !== "debit") {
-      return json({ error: "payment_type deve ser 'credit' ou 'debit'" }, 400);
+    if (
+      payment_type !== "credit" &&
+      payment_type !== "debit" &&
+      payment_type !== "pix"
+    ) {
+      return json({ error: "payment_type deve ser 'credit', 'debit' ou 'pix'" }, 400);
     }
     if (!customer?.name || !customer?.email) {
       return json({ error: "customer.name e customer.email obrigatórios" }, 400);
@@ -127,6 +131,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Split rules (se houver recipient) ────────────────────────────────────
+    // PIX e débito sempre 1×, sem acréscimo de parcela.
     const inst = payment_type === "credit" ? installments : 1;
     let splitRules: ReturnType<typeof buildSplitRules>["rules"] | null = null;
     let platformAmount: number | null = null;
@@ -154,7 +159,11 @@ Deno.serve(async (req) => {
         visible: "true",
         print_order_receipt: print_receipt ? "true" : "false",
         devices_serial_number: [device_serial],
-        payment_setup: { type: payment_type, installments: inst },
+        payment_setup: {
+          type: payment_type,
+          // PIX não usa parcelas
+          ...(payment_type !== "pix" && { installments: inst }),
+        },
         display_name: display_name ?? "Venda PDV",
       },
     };
