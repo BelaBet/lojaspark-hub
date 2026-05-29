@@ -126,7 +126,7 @@ const Vendas = () => {
       const since = new Date();
       since.setDate(since.getDate() - 30);
 
-      const [{ data: prods }, { data: cli }, { data: vendasRecent }, { data: lojaData }] = await Promise.all([
+      const [{ data: prods }, { data: cli }, { data: vendasRecent }, { data: recipient }] = await Promise.all([
         supabase
           .from("produtos")
           .select("id,nome,sku,ean,preco_venda,fotos,estoque(quantidade,quantidade_minima,deposito)")
@@ -138,10 +138,10 @@ const Vendas = () => {
           .select("id, venda_itens(produto_id, quantidade)")
           .eq("status", "concluida")
           .gte("created_at", since.toISOString()),
-        supabase.from("lojas").select("pagarme_recipient_id").maybeSingle(),
+        supabase.rpc("get_loja_pagarme_recipient"),
       ]);
 
-      setSellerRecipientId((lojaData as { pagarme_recipient_id: string | null } | null)?.pagarme_recipient_id ?? null);
+      setSellerRecipientId((recipient as string | null) ?? null);
 
       const lista = (prods as Produto[]) ?? [];
       setProdutos(lista);
