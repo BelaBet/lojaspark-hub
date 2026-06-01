@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppLayout } from "@/components/AppLayout";
-import { Shield, Search, ExternalLink, Building2, Webhook } from "lucide-react";
+import { Shield, Search, ExternalLink, Building2, Webhook, FlaskConical } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -91,6 +91,11 @@ const Admin = () => {
           <Button variant="outline" size="sm" asChild>
             <Link to="/admin/webhooks">
               <Webhook className="h-4 w-4 mr-1.5" /> Auditoria de webhooks
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" asChild className="ml-2">
+            <Link to="/admin/teste-pagamento">
+              <FlaskConical className="h-4 w-4 mr-1.5" /> Teste de pagamento
             </Link>
           </Button>
         </div>
