@@ -1,0 +1,1 @@
+ALTER TABLE public.vendas ADD COLUMN IF NOT EXISTS anticipation boolean NOT NULL DEFAULT false;
