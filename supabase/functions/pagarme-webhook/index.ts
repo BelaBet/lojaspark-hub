@@ -9,6 +9,41 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
+const PLATFORM_BASE_RATE = 0.0096;
+const INSTALLMENT_RATE = 0.011;
+
+// Recalcula o split em centavos a partir do amount real capturado, garantindo
+// que platform_amount + seller_amount === amount (sem divergência de arredondamento).
+function recomputeSplit(
+  amountCents: number,
+  installments: number,
+  platformRecipientId: string,
+  sellerRecipientId: string,
+) {
+  const inst = Math.max(1, Math.floor(installments || 1));
+  const surchargeRate = inst > 1 ? INSTALLMENT_RATE * (inst - 1) : 0;
+  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
+  const platformAmount = Math.round(amountCents * platformRate);
+  const sellerAmount = amountCents - platformAmount;
+  return {
+    platformAmount,
+    sellerAmount,
+    rules: [
+      {
+        recipient_id: platformRecipientId,
+        amount: platformAmount,
+        type: "flat",
+        options: { charge_processing_fee: false, charge_remainder_fee: false, liable: false },
+      },
+      {
+        recipient_id: sellerRecipientId,
+        amount: sellerAmount,
+        type: "flat",
+        options: { charge_processing_fee: true, charge_remainder_fee: true, liable: true },
+      },
+    ],
+  };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -131,7 +166,7 @@ Deno.serve(async (req) => {
       // Busca a venda correspondente
       const { data: venda } = await supabase
         .from("vendas")
-        .select("id, split_rules, device_serial, base_amount, payment_channel, total")
+        .select("id, split_rules, device_serial, base_amount, payment_channel, total, installments, seller_recipient_id")
         .eq("pagarme_order_id", orderId)
         .maybeSingle();
       if (venda?.id) logEntry.venda_id = venda.id;
@@ -148,14 +183,34 @@ Deno.serve(async (req) => {
         // depois o valor autorizado pela charge, e por último base_amount.
         const totalCents =
           venda?.total != null ? Math.round(Number(venda.total) * 100) : null;
-        const amount = totalCents ?? chargeAmt ?? venda?.base_amount;
-        const splitRules = venda?.split_rules as unknown[] | null;
+        const amount = (totalCents ?? chargeAmt ?? venda?.base_amount) as number;
+
+        // Recalcula o split sobre o amount real da captura para evitar
+        // divergência entre soma das regras e o valor capturado.
+        const platformRecipientId = Deno.env.get("PAGARME_PLATFORM_RECIPIENT_ID");
+        const sellerRecipientId = venda?.seller_recipient_id as string | undefined;
+        const hadSplit =
+          Array.isArray(venda?.split_rules) && (venda?.split_rules as unknown[]).length > 0;
+
+        let splitForCapture: ReturnType<typeof recomputeSplit>["rules"] | null = null;
+        let recomputedPlatform: number | null = null;
+        let recomputedSeller: number | null = null;
+        if (hadSplit && platformRecipientId && sellerRecipientId) {
+          const built = recomputeSplit(
+            amount,
+            (venda?.installments as number | null) ?? 1,
+            platformRecipientId,
+            sellerRecipientId,
+          );
+          splitForCapture = built.rules;
+          recomputedPlatform = built.platformAmount;
+          recomputedSeller = built.sellerAmount;
+        }
 
         const captureUrl = `${PAGARME_BASE_URL}/charges/${chargeId}/capture`;
-        const capturePayload =
-          splitRules && Array.isArray(splitRules) && splitRules.length > 0
-            ? { amount, split: splitRules }
-            : { amount: String(amount) };
+        const capturePayload = splitForCapture
+          ? { amount, split: splitForCapture }
+          : { amount: String(amount) };
 
         const captureRes = await fetch(captureUrl, {
           method: "POST",
@@ -174,6 +229,19 @@ Deno.serve(async (req) => {
             .eq("pagarme_order_id", orderId);
         } else {
           console.log("Captura automática OK:", captureData.id, captureData.status);
+          // Persiste os valores efetivamente capturados (em centavos) para auditoria.
+          if (splitForCapture) {
+            await supabase
+              .from("vendas")
+              .update({
+                base_amount: amount,
+                platform_amount: recomputedPlatform,
+                seller_amount: recomputedSeller,
+                split_rules: splitForCapture,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("pagarme_order_id", orderId);
+          }
         }
         (logEntry.response as unknown) = { capture: { ok: captureRes.ok, status: captureData?.status, id: captureData?.id } };
 

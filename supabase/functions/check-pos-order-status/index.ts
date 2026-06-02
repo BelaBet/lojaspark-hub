@@ -4,6 +4,41 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
+const PLATFORM_BASE_RATE = 0.0096;
+const INSTALLMENT_RATE = 0.011;
+
+// Recalcula o split em centavos a partir do amount real capturado, garantindo
+// que platform_amount + seller_amount === amount.
+function recomputeSplit(
+  amountCents: number,
+  installments: number,
+  platformRecipientId: string,
+  sellerRecipientId: string,
+) {
+  const inst = Math.max(1, Math.floor(installments || 1));
+  const surchargeRate = inst > 1 ? INSTALLMENT_RATE * (inst - 1) : 0;
+  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
+  const platformAmount = Math.round(amountCents * platformRate);
+  const sellerAmount = amountCents - platformAmount;
+  return {
+    platformAmount,
+    sellerAmount,
+    rules: [
+      {
+        recipient_id: platformRecipientId,
+        amount: platformAmount,
+        type: "flat",
+        options: { charge_processing_fee: false, charge_remainder_fee: false, liable: false },
+      },
+      {
+        recipient_id: sellerRecipientId,
+        amount: sellerAmount,
+        type: "flat",
+        options: { charge_processing_fee: true, charge_remainder_fee: true, liable: true },
+      },
+    ],
+  };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +76,7 @@ Deno.serve(async (req) => {
     // RLS já garante que o usuário só vê vendas da sua loja
     const { data: venda, error: vErr } = await supabase
       .from("vendas")
-      .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel, total")
+      .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel, total, installments, seller_recipient_id")
       .eq("id", venda_id)
       .maybeSingle();
     if (vErr || !venda) return json({ error: "Venda não encontrada" }, 404);
@@ -77,6 +112,10 @@ Deno.serve(async (req) => {
     // funciona mesmo se o webhook estiver bloqueado/desconfigurado.
     let captureAttempted = false;
     let captureOk = false;
+    let recomputedPlatform: number | null = null;
+    let recomputedSeller: number | null = null;
+    let splitForCapture: ReturnType<typeof recomputeSplit>["rules"] | null = null;
+    let capturedAmount: number | null = null;
     if (
       chargeStatus === "authorized" &&
       chargeId &&
@@ -86,14 +125,30 @@ Deno.serve(async (req) => {
       // Amount em centavos: prioriza o total real da venda (com centavos).
       const totalCents =
         venda.total != null ? Math.round(Number(venda.total) * 100) : null;
-      const amount =
-        totalCents ?? (charge?.amount as number | undefined) ?? venda.base_amount;
-      const splitRules = venda.split_rules as unknown[] | null;
+      const amount = (totalCents ?? (charge?.amount as number | undefined) ?? venda.base_amount) as number;
+      capturedAmount = amount;
+
+      // Recalcula o split em centavos sobre o amount real (evita divergência).
+      const platformRecipientId = Deno.env.get("PAGARME_PLATFORM_RECIPIENT_ID");
+      const sellerRecipientId = venda.seller_recipient_id as string | undefined;
+      const hadSplit =
+        Array.isArray(venda.split_rules) && (venda.split_rules as unknown[]).length > 0;
+      if (hadSplit && platformRecipientId && sellerRecipientId) {
+        const built = recomputeSplit(
+          amount,
+          (venda.installments as number | null) ?? 1,
+          platformRecipientId,
+          sellerRecipientId,
+        );
+        splitForCapture = built.rules;
+        recomputedPlatform = built.platformAmount;
+        recomputedSeller = built.sellerAmount;
+      }
+
       const captureUrl = `${PAGARME_BASE_URL}/charges/${chargeId}/capture`;
-      const capturePayload =
-        splitRules && Array.isArray(splitRules) && splitRules.length > 0
-          ? { amount, split: splitRules }
-          : { amount: String(amount) };
+      const capturePayload = splitForCapture
+        ? { amount, split: splitForCapture }
+        : { amount: String(amount) };
       const captureRes = await fetch(captureUrl, {
         method: "POST",
         headers: {
@@ -148,6 +203,13 @@ Deno.serve(async (req) => {
     if (novoPagamento) updates.pagamento_status = novoPagamento;
     if (novoStatus) updates.status = novoStatus;
     if (setPaidAt) updates.paid_at = paidAtPagarme ?? new Date().toISOString();
+    // Persiste o split efetivamente aplicado, em centavos.
+    if (captureOk && splitForCapture && capturedAmount != null) {
+      updates.base_amount = capturedAmount;
+      updates.platform_amount = recomputedPlatform;
+      updates.seller_amount = recomputedSeller;
+      updates.split_rules = splitForCapture;
+    }
 
     if (Object.keys(updates).length > 1) {
       await admin.from("vendas").update(updates).eq("id", venda_id);
