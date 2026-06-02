@@ -23,6 +23,7 @@ import TestePagamento from "./pages/TestePagamento.tsx";
 import WebhookConfig from "./pages/WebhookConfig.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import SimuladorSplit from "./pages/SimuladorSplit.tsx";
+import BatchCapture from "./pages/BatchCapture.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/admin/webhook-config" element={<WebhookConfig />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/simulador" element={<SimuladorSplit />} />
+          <Route path="/admin/batch-capture" element={<BatchCapture />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
