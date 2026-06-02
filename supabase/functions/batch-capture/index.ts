@@ -101,6 +101,8 @@ Deno.serve(async () => {
       // 3. Calcula split com taxas vigentes
       const { platformAmount, sellerAmount, rules } = calcSplit(amount, installments, anticipation);
 
+      console.log(`[batch-capture] chargeId: ${chargeId} | amount da Pagar.me: ${amount} | installments: ${installments} | split plataforma: ${platformAmount} | split Lagoinha: ${sellerAmount} | soma: ${platformAmount + sellerAmount}`);
+
       // 4. Executa captura com split
       const captureRes = await fetch(`${PAGARME_BASE_URL}/charges/${chargeId}/capture`, {
         method: "POST",
