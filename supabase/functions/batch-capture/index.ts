@@ -5,6 +5,7 @@
 // Após rodar com sucesso, pode deletar essa função.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const PAGARME_BASE_URL            = "https://api.pagar.me/core/v5";
 const PLATFORM_RATE_CREDIT_AVISTA = 0.0125; // 1,25% crédito 1×
@@ -61,7 +62,10 @@ function calcSplit(amount: number, installments: number, anticipation: boolean) 
   };
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
   const secretKey = Deno.env.get("PAGARME_SECRET_KEY")!;
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -168,6 +172,6 @@ Deno.serve(async () => {
 
   return new Response(
     JSON.stringify({ total: results.length, ok, skipped, failed, results }, null, 2),
-    { headers: { "Content-Type": "application/json" } },
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 });
