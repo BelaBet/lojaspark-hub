@@ -1,47 +1,59 @@
-// Sincroniza vendas POS pendentes direto contra a Pagar.me, capturando as
-// charges autorizadas e atualizando status no banco. Lógica é a mesma de
-// check-pos-order-status, mas inline (sem hop HTTP) para suportar lote.
-// Query params: from=YYYY-MM-DD, to=YYYY-MM-DD, loja_id=<uuid>
+// Edge Function temporária: sincroniza as 23 vendas POS pendentes de 29/05/2026.
+// Para cada venda com pagarme_order_id:
+//   1. Consulta a order na Pagar.me
+//   2. Pega o charge_id e verifica se está authorized_pending_capture
+//   3. Captura com split correto por método (débito/crédito/pix)
+//   4. Fecha o pedido (PATCH /orders/{order_id}/closed)
+//   5. Atualiza a venda no Supabase
+//
+// Após rodar com sucesso, deletar essa função.
+
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PIX_PLATFORM_FEE_CENTS = 90;
-const DEBIT_RATE             = 0.0098;
-const CREDIT_1X_BASE_RATE    = 0.0125;
-const CREDIT_N_BASE_RATE     = 0.0135;
-const ANTICIPATION_RATE      = 0.011;
+const PAGARME_BASE_URL            = "https://api.pagar.me/core/v5";
+const PLATFORM_RATE_DEBIT         = 0.0098;
+const PLATFORM_RATE_CREDIT_AVISTA = 0.0125;
+const PLATFORM_RATE_CREDIT_PARC   = 0.0135;
+const ANTICIPATION_RATE           = 0.011;
+const PIX_PLATFORM_FEE_CENTS      = 90;
+const PLATFORM_RECIPIENT_ID       = "re_cmp709bbxe5y20l9t4pnjpa76";
+const LAGOINHA_RECIPIENT_ID       = "re_cmpcr534o9me40l9ti0cnqz6e";
 
-function recomputeSplit(
-  amountCents: number,
-  paymentType: "credit" | "debit" | "pix",
+function calcSplit(
+  amount: number,
+  paymentMethod: string,
   installments: number,
-  platformRecipientId: string,
-  sellerRecipientId: string,
+  anticipation: boolean,
 ) {
   let platformAmount: number;
-  if (paymentType === "pix") {
-    platformAmount = Math.min(PIX_PLATFORM_FEE_CENTS, amountCents);
-  } else if (paymentType === "debit") {
-    platformAmount = Math.round(amountCents * DEBIT_RATE);
+  let sellerAmount: number;
+
+  if (paymentMethod === "pix") {
+    platformAmount = PIX_PLATFORM_FEE_CENTS;
+    sellerAmount   = amount - platformAmount;
+  } else if (paymentMethod === "debit_card") {
+    platformAmount = Math.round(amount * PLATFORM_RATE_DEBIT);
+    sellerAmount   = amount - platformAmount;
   } else {
-    const inst = Math.max(1, Math.floor(installments || 1));
-    const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
-    const rate = baseRate + ANTICIPATION_RATE;
-    platformAmount = Math.round(amountCents * rate);
+    const inst      = Math.max(1, installments);
+    const baseRate  = inst === 1 ? PLATFORM_RATE_CREDIT_AVISTA : PLATFORM_RATE_CREDIT_PARC;
+    const totalRate = baseRate + (anticipation ? ANTICIPATION_RATE : 0);
+    platformAmount  = Math.round(amount * totalRate);
+    sellerAmount    = amount - platformAmount;
   }
-  const sellerAmount = amountCents - platformAmount;
+
   return {
     platformAmount,
     sellerAmount,
     rules: [
       {
-        recipient_id: platformRecipientId,
+        recipient_id: PLATFORM_RECIPIENT_ID,
         amount: platformAmount,
         type: "flat",
         options: { charge_processing_fee: false, charge_remainder_fee: false, liable: false },
       },
       {
-        recipient_id: sellerRecipientId,
+        recipient_id: LAGOINHA_RECIPIENT_ID,
         amount: sellerAmount,
         type: "flat",
         options: { charge_processing_fee: true, charge_remainder_fee: true, liable: true },
@@ -50,150 +62,160 @@ function recomputeSplit(
   };
 }
 
-async function syncOne(admin: ReturnType<typeof createClient>, vendaId: string, secretKey: string, platformRecipientId: string | undefined) {
-  const { data: venda, error: vErr } = await admin
-    .from("vendas")
-    .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel, total, installments, seller_recipient_id, forma_pagamento")
-    .eq("id", vendaId)
-    .maybeSingle();
-  if (vErr || !venda?.pagarme_order_id) return { venda_id: vendaId, error: "not_found_or_no_order" };
-
-  const res = await fetch(`${PAGARME_BASE_URL}/orders/${venda.pagarme_order_id}`, {
-    headers: { Authorization: `Basic ${btoa(secretKey + ":")}` },
-  });
-  const data = await res.json();
-  if (!res.ok) return { venda_id: vendaId, pagarme_error: data?.message ?? "lookup_failed", http: res.status };
-
-  const orderStatus: string = data?.status ?? "unknown";
-  const charge = data?.charges?.[0];
-  const chargeStatus: string | undefined = charge?.status;
-  const chargeId: string | undefined = charge?.id;
-  const paidAtPagarme: string | undefined = charge?.paid_at ?? charge?.last_transaction?.paid_at ?? undefined;
-
-  let captureOk = false;
-  let captureAttempted = false;
-  let recomputedPlatform: number | null = null;
-  let recomputedSeller: number | null = null;
-  let splitForCapture: ReturnType<typeof recomputeSplit>["rules"] | null = null;
-  let capturedAmount: number | null = null;
-  let captureErr: unknown = null;
-
-  if (chargeStatus === "authorized" && chargeId && venda.payment_channel === "pos") {
-    captureAttempted = true;
-    const totalCents = venda.total != null ? Math.round(Number(venda.total) * 100) : null;
-    const amount = (totalCents ?? (charge?.amount as number | undefined) ?? venda.base_amount) as number;
-    capturedAmount = amount;
-
-    const sellerRecipientId = venda.seller_recipient_id as string | undefined;
-    const hadSplit = Array.isArray(venda.split_rules) && (venda.split_rules as unknown[]).length > 0;
-    if (hadSplit && platformRecipientId && sellerRecipientId) {
-      const fp = (venda.forma_pagamento as string | null) ?? "";
-      const paymentType: "credit" | "debit" | "pix" =
-        fp === "pix" ? "pix" : fp === "cartao_debito" ? "debit" : "credit";
-      const built = recomputeSplit(amount, paymentType, (venda.installments as number | null) ?? 1, platformRecipientId, sellerRecipientId);
-      splitForCapture = built.rules;
-      recomputedPlatform = built.platformAmount;
-      recomputedSeller = built.sellerAmount;
-    }
-
-    const capturePayload = splitForCapture ? { amount, split: splitForCapture } : { amount: String(amount) };
-    const captureRes = await fetch(`${PAGARME_BASE_URL}/charges/${chargeId}/capture`, {
-      method: "POST",
-      headers: { Authorization: `Basic ${btoa(secretKey + ":")}`, "Content-Type": "application/json" },
-      body: JSON.stringify(capturePayload),
-    });
-    const captureData = await captureRes.json();
-    captureOk = captureRes.ok;
-    if (!captureRes.ok) captureErr = captureData;
-  }
-
-  let novoPagamento: string | null = null;
-  let novoStatus: string | null = null;
-  let setPaidAt = false;
-  if (chargeStatus === "paid" || orderStatus === "paid" || (captureAttempted && captureOk)) {
-    novoPagamento = "pago"; novoStatus = "concluida"; setPaidAt = true;
-  } else if (chargeStatus === "failed" || chargeStatus === "not_authorized" || orderStatus === "failed") {
-    novoPagamento = "falhou";
-  } else if (orderStatus === "canceled" || chargeStatus === "canceled" || chargeStatus === "refunded") {
-    novoPagamento = "falhou"; novoStatus = "cancelada";
-  }
-
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (chargeId) updates.pagarme_charge_id = chargeId;
-  if (novoPagamento) updates.pagamento_status = novoPagamento;
-  if (novoStatus) updates.status = novoStatus;
-  if (setPaidAt) updates.paid_at = paidAtPagarme ?? new Date().toISOString();
-  if (captureOk && splitForCapture && capturedAmount != null) {
-    updates.base_amount = capturedAmount;
-    updates.platform_amount = recomputedPlatform;
-    updates.seller_amount = recomputedSeller;
-    updates.split_rules = splitForCapture;
-  }
-  if (Object.keys(updates).length > 1) {
-    await admin.from("vendas").update(updates).eq("id", vendaId);
-  }
-
-  return {
-    venda_id: vendaId,
-    order_status: orderStatus,
-    charge_status: chargeStatus ?? null,
-    capture_attempted: captureAttempted,
-    capture_ok: captureOk,
-    capture_err: captureErr,
-    novo_pagamento: novoPagamento,
-  };
-}
-
-Deno.serve(async (req) => {
-  const url = new URL(req.url);
-  const from = url.searchParams.get("from") ?? "2026-05-29";
-  const to = url.searchParams.get("to") ?? from;
-  const lojaId = url.searchParams.get("loja_id");
-
+Deno.serve(async () => {
+  const secretKey = Deno.env.get("PAGARME_SECRET_KEY")!;
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const secretKey = Deno.env.get("PAGARME_SECRET_KEY");
-  if (!secretKey) return new Response(JSON.stringify({ error: "PAGARME_SECRET_KEY ausente" }), { status: 500 });
-  const platformRecipientId = Deno.env.get("PAGARME_PLATFORM_RECIPIENT_ID");
 
-  let q = admin
+  // Busca as 23 vendas pendentes com pagarme_order_id
+  const { data: vendas, error } = await admin
     .from("vendas")
-    .select("id")
+    .select("id, pagarme_order_id, anticipation, base_amount")
     .eq("pagamento_status", "pendente")
-    .not("pagarme_order_id", "is", null)
     .eq("payment_channel", "pos")
-    .gte("created_at", `${from}T00:00:00Z`)
-    .lte("created_at", `${to}T23:59:59Z`);
-  if (lojaId) q = q.eq("loja_id", lojaId);
+    .gte("created_at", "2026-05-29T00:00:00Z")
+    .lte("created_at", "2026-05-29T23:59:59Z")
+    .not("pagarme_order_id", "is", null);
 
-  const { data: vendas, error } = await q;
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-  if (!vendas?.length) {
-    return new Response(JSON.stringify({ msg: "Nenhuma venda encontrada", total: 0 }));
+  if (error || !vendas?.length) {
+    return new Response(
+      JSON.stringify({ error: error?.message ?? "Nenhuma venda encontrada" }),
+      { headers: { "Content-Type": "application/json" } },
+    );
   }
 
-  // Paralelismo limitado (5 concorrentes) para terminar bem antes do timeout.
-  const CONCURRENCY = 5;
-  const results: unknown[] = [];
-  const queue = [...vendas];
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
-      while (queue.length) {
-        const v = queue.shift()!;
-        try {
-          results.push(await syncOne(admin, v.id, secretKey, platformRecipientId));
-        } catch (err) {
-          results.push({ venda_id: v.id, error: String(err) });
-        }
+  const results = [];
+
+  for (const venda of vendas) {
+    try {
+      // 1. Consulta a order na Pagar.me
+      const orderRes = await fetch(`${PAGARME_BASE_URL}/orders/${venda.pagarme_order_id}`, {
+        headers: { Authorization: `Basic ${btoa(secretKey + ":")}` },
+      });
+      const order = await orderRes.json();
+
+      const charge        = order?.charges?.[0];
+      const chargeId      = charge?.id as string | undefined;
+      const lastTxStatus  = charge?.last_transaction?.status as string | undefined;
+      const paymentMethod = charge?.payment_method as string ?? "credit_card";
+      const amount        = charge?.amount as number ?? venda.base_amount;
+      const installments  = (charge?.last_transaction?.installments as number | undefined) ?? 1;
+      const orderStatus   = order?.status as string;
+
+      console.log(
+        `[batch-sync] venda: ${venda.id} | order: ${venda.pagarme_order_id} | ` +
+        `charge: ${chargeId} | last_tx_status: ${lastTxStatus} | order_status: ${orderStatus}`
+      );
+
+      // Já pago — apenas fecha e atualiza
+      if (orderStatus === "paid" || charge?.status === "paid") {
+        await admin.from("vendas").update({
+          pagamento_status:    "pago",
+          status:              "concluida",
+          pagarme_charge_id:   chargeId ?? null,
+          paid_at:             new Date().toISOString(),
+          updated_at:          new Date().toISOString(),
+        }).eq("id", venda.id);
+        results.push({ vendaId: venda.id, orderId: venda.pagarme_order_id, result: "ja_pago_atualizado" });
+        continue;
       }
-    }),
-  );
 
-  return new Response(JSON.stringify({ total: results.length, results }, null, 2), {
-    headers: { "Content-Type": "application/json" },
-  });
+      // Sem charge ou não está pronta para captura
+      if (!chargeId || lastTxStatus !== "authorized_pending_capture") {
+        results.push({
+          vendaId:  venda.id,
+          orderId:  venda.pagarme_order_id,
+          result:   "skipped",
+          reason:   `last_tx_status_${lastTxStatus ?? "sem_charge"}`,
+        });
+        continue;
+      }
+
+      const anticipation = (venda.anticipation as boolean | null) ?? false;
+      const { platformAmount, sellerAmount, rules } = calcSplit(
+        amount, paymentMethod, installments, anticipation,
+      );
+
+      console.log(
+        `[batch-sync] split → plataforma: ${platformAmount} | Lagoinha: ${sellerAmount} | soma: ${platformAmount + sellerAmount}`
+      );
+
+      // 2. Captura com split
+      const captureRes = await fetch(`${PAGARME_BASE_URL}/charges/${chargeId}/capture`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(secretKey + ":")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amount, split: rules }),
+      });
+      const captureData = await captureRes.json();
+
+      if (!captureRes.ok) {
+        results.push({
+          vendaId:  venda.id,
+          orderId:  venda.pagarme_order_id,
+          chargeId,
+          result:   "capture_failed",
+          error:    captureData?.message ?? JSON.stringify(captureData),
+        });
+        continue;
+      }
+
+      // 3. Fecha o pedido
+      const closeRes = await fetch(`${PAGARME_BASE_URL}/orders/${venda.pagarme_order_id}/closed`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Basic ${btoa(secretKey + ":")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "closed" }),
+      });
+      const closeData = await closeRes.json();
+      console.log(`[batch-sync] order fechada: ${venda.pagarme_order_id} | ok: ${closeRes.ok}`);
+
+      // 4. Atualiza venda no Supabase
+      await admin.from("vendas").update({
+        pagamento_status:    "pago",
+        status:              "concluida",
+        pagarme_charge_id:   chargeId,
+        paid_at:             new Date().toISOString(),
+        updated_at:          new Date().toISOString(),
+        platform_amount:     platformAmount,
+        seller_amount:       sellerAmount,
+        seller_recipient_id: LAGOINHA_RECIPIENT_ID,
+        split_rules:         rules,
+      }).eq("id", venda.id);
+
+      results.push({
+        vendaId:         venda.id,
+        orderId:         venda.pagarme_order_id,
+        chargeId,
+        result:          "captured",
+        payment_method:  paymentMethod,
+        amount,
+        platform_amount: platformAmount,
+        seller_amount:   sellerAmount,
+        order_closed:    closeRes.ok,
+        close_status:    closeData?.status ?? null,
+      });
+
+    } catch (err) {
+      results.push({ vendaId: venda.id, orderId: venda.pagarme_order_id, error: String(err) });
+    }
+
+    await new Promise((r) => setTimeout(r, 400));
+  }
+
+  const captured = results.filter((r) => (r as any).result === "captured").length;
+  const skipped  = results.filter((r) => (r as any).result === "skipped").length;
+  const failed   = results.filter((r) => (r as any).result === "capture_failed").length;
+  const updated  = results.filter((r) => (r as any).result === "ja_pago_atualizado").length;
+
+  return new Response(
+    JSON.stringify({ total: results.length, captured, skipped, failed, updated, results }, null, 2),
+    { headers: { "Content-Type": "application/json" } },
+  );
 });
