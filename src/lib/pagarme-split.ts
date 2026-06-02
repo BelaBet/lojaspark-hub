@@ -1,19 +1,21 @@
 // Cálculos de split Pagar.me v5 (todos os valores em centavos).
 //
-// Taxas repassadas ao cliente:
-//   Pix         → R$ 0,50 fixo
-//   Débito      → 0,96% (plataforma) + 3,00% (operação) = 3,96%
-//   Crédito     → 0,96% (plataforma) + 3,00% (operação) + 2,50% × parcelas
-//                 1×  = 6,46%
-//                 2×  = 8,96%
-//                 3×  = 11,46%
-//                 ...
-//                 12× = 33,96%
+// Taxas repassadas ao cliente (antecipação SEMPRE ligada):
+//   Pix              → R$ 0,90 fixo
+//   Débito           → 0,98%
+//   Crédito 1× (30d) → 1,25% + 1,10% antecipação = 2,35%
+//   Crédito 2×–12×   → 1,35% + 1,10% antecipação = 2,45% (flat)
 
-export const PLATFORM_RATE          = 0.0096; // 0,96% — taxa da plataforma
-export const OPERATION_RATE         = 0.03;   // 3,00% — taxa de operação (crédito e débito)
-export const INSTALLMENT_RATE       = 0.025;  // 2,50% por parcela
-export const PIX_PLATFORM_FEE_CENTS = 50;     // R$ 0,50 fixo para Pix
+export const PIX_PLATFORM_FEE_CENTS = 90;     // R$ 0,90 fixo para Pix
+export const DEBIT_RATE             = 0.0098; // 0,98%
+export const CREDIT_1X_BASE_RATE    = 0.0125; // 1,25% à vista 30d
+export const CREDIT_N_BASE_RATE     = 0.0135; // 1,35% parcelado
+export const ANTICIPATION_RATE      = 0.011;  // 1,10% antecipação (flat)
+
+// Aliases legados (para imports antigos não quebrarem)
+export const PLATFORM_RATE    = 0;
+export const OPERATION_RATE   = 0;
+export const INSTALLMENT_RATE = 0;
 
 export type SplitResult = {
   totalAmount: number;
@@ -38,12 +40,12 @@ export function calculateDebitSplit(
   baseAmount: number,
   passToCustomer: boolean,
 ): SplitResult {
-  const totalRate          = PLATFORM_RATE + OPERATION_RATE; // 3,96%
+  const totalRate          = DEBIT_RATE;
   const feeCents           = passToCustomer ? Math.round(baseAmount * totalRate) : 0;
   const totalAmount        = baseAmount + feeCents;
   const platformAmount     = Math.round(totalAmount * totalRate);
   const sellerAmount       = totalAmount - platformAmount;
-  const operationFeeAmount = passToCustomer ? Math.round(baseAmount * OPERATION_RATE) : 0;
+  const operationFeeAmount = feeCents;
 
   return {
     totalAmount,
@@ -56,10 +58,9 @@ export function calculateDebitSplit(
 }
 
 /**
- * Crédito.
- * Taxa total: 0,96% + 3,00% + (2,50% × parcelas)
- *   1×  → 6,46%  |  6×  → 21,46%
- *   2×  → 8,96%  |  12× → 33,96%
+ * Crédito (antecipação sempre ligada).
+ *   1×  (à vista 30d) → 1,25% + 1,10% = 2,35%
+ *   ≥2× (parcelado)   → 1,35% + 1,10% = 2,45% (flat)
  */
 export function calculateCreditSplit(
   baseAmount: number,
@@ -67,14 +68,14 @@ export function calculateCreditSplit(
   passToCustomer: boolean,
 ): SplitResult {
   const inst                  = Math.max(1, Math.floor(installments || 1));
-  const installmentRate       = INSTALLMENT_RATE * inst;          // 2,50% × n
-  const totalRate             = PLATFORM_RATE + OPERATION_RATE + installmentRate;
+  const baseRate              = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+  const totalRate             = baseRate + ANTICIPATION_RATE;
   const feeCents              = passToCustomer ? Math.round(baseAmount * totalRate) : 0;
   const totalAmount           = baseAmount + feeCents;
   const platformAmount        = Math.round(totalAmount * totalRate);
   const sellerAmount          = totalAmount - platformAmount;
-  const operationFeeAmount    = passToCustomer ? Math.round(baseAmount * OPERATION_RATE) : 0;
-  const installmentFeeAmount  = passToCustomer ? Math.round(baseAmount * installmentRate) : 0;
+  const operationFeeAmount    = passToCustomer ? Math.round(baseAmount * baseRate) : 0;
+  const installmentFeeAmount  = passToCustomer ? Math.round(baseAmount * ANTICIPATION_RATE) : 0;
 
   return {
     totalAmount,
@@ -138,10 +139,10 @@ export function formatBRL(cents: number): string {
 }
 
 // ─── Backward-compat aliases (consumidores antigos) ───────────────────────────
-/** @deprecated use PLATFORM_RATE */
-export const BASE_FEE_RATE = PLATFORM_RATE;
-/** @deprecated taxa de operação (antes "Stone MDR") */
-export const STONE_MDR_RATE = OPERATION_RATE;
+/** @deprecated taxa base do crédito 1× */
+export const BASE_FEE_RATE = CREDIT_1X_BASE_RATE;
+/** @deprecated taxa de antecipação */
+export const STONE_MDR_RATE = ANTICIPATION_RATE;
 
 /**
  * Alias retro-compatível. Antes era usado tanto para crédito quanto débito.
@@ -155,9 +156,9 @@ export function calculateSplit(
   passToCustomer: boolean,
 ) {
   const r = calculateCreditSplit(baseAmount, installments, passToCustomer);
-  const baseFeeAmount = passToCustomer
-    ? Math.round(baseAmount * (PLATFORM_RATE + OPERATION_RATE))
-    : 0;
+  const inst = Math.max(1, Math.floor(installments || 1));
+  const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+  const baseFeeAmount = passToCustomer ? Math.round(baseAmount * baseRate) : 0;
   return {
     ...r,
     baseFeeAmount,
