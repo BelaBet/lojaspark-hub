@@ -22,10 +22,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL       = "https://api.pagar.me/core/v5";
-const PLATFORM_RATE          = 0.0096;
-const OPERATION_RATE         = 0.03;
-const INSTALLMENT_RATE       = 0.025;
-const PIX_PLATFORM_FEE_CENTS = 50;
+// Antecipação 1,10% sempre ligada.
+const PIX_PLATFORM_FEE_CENTS = 90;     // R$ 0,90
+const DEBIT_RATE             = 0.0098; // 0,98%
+const CREDIT_1X_BASE_RATE    = 0.0125; // 1,25% à vista 30d
+const CREDIT_N_BASE_RATE     = 0.0135; // 1,35% parcelado
+const ANTICIPATION_RATE      = 0.011;  // 1,10%
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +42,7 @@ function json(data: unknown, status = 200) {
 }
 
 function calcDebit(baseAmount: number) {
-  const rate           = PLATFORM_RATE + OPERATION_RATE; // 3,96%
+  const rate           = DEBIT_RATE;
   const totalAmount    = baseAmount + Math.round(baseAmount * rate);
   const platformAmount = Math.round(totalAmount * rate);
   const sellerAmount   = totalAmount - platformAmount;
@@ -49,7 +51,8 @@ function calcDebit(baseAmount: number) {
 
 function calcCredit(baseAmount: number, installments: number) {
   const inst           = Math.max(1, installments);
-  const rate           = PLATFORM_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+  const baseRate       = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+  const rate           = baseRate + ANTICIPATION_RATE;
   const totalAmount    = baseAmount + Math.round(baseAmount * rate);
   const platformAmount = Math.round(totalAmount * rate);
   const sellerAmount   = totalAmount - platformAmount;
