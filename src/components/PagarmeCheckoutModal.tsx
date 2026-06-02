@@ -23,9 +23,9 @@ import { brl } from "@/lib/format";
 import {
   calculateSplit,
   getInstallmentTable,
-  INSTALLMENT_RATE,
-  STONE_MDR_RATE,
-  BASE_FEE_RATE,
+  CREDIT_1X_BASE_RATE,
+  CREDIT_N_BASE_RATE,
+  ANTICIPATION_RATE,
 } from "@/lib/pagarme-split";
 
 export type PagarmeMethod = "pix" | "credit_card";
@@ -119,7 +119,7 @@ export function PagarmeCheckoutModal({
     [amountCents, method, installments],
   );
   const installmentTable = useMemo(() => getInstallmentTable(amountCents, 12), [amountCents]);
-  const stoneFee = Math.round(split.sellerAmount * STONE_MDR_RATE);
+  const stoneFee = Math.round(split.sellerAmount * ANTICIPATION_RATE);
 
   const gerarPix = async () => {
     setLoading(true);
@@ -381,7 +381,7 @@ export function PagarmeCheckoutModal({
                 {split.baseFeeAmount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      Taxas ({(BASE_FEE_RATE * 100).toFixed(2)}%)
+                      Taxa ({((installments === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE) * 100).toFixed(2)}%)
                     </span>
                     <span className="num">+ {brl(split.baseFeeAmount / 100)}</span>
                   </div>
@@ -389,7 +389,7 @@ export function PagarmeCheckoutModal({
                 {split.installmentSurcharge > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">
-                      Parcelamento ({(INSTALLMENT_RATE * (installments - 1) * 100).toFixed(2)}%)
+                      Antecipação ({(ANTICIPATION_RATE * 100).toFixed(2)}%)
                     </span>
                     <span className="num">+ {brl(split.installmentSurcharge / 100)}</span>
                   </div>
