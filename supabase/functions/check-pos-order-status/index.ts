@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // RLS já garante que o usuário só vê vendas da sua loja
     const { data: venda, error: vErr } = await supabase
       .from("vendas")
-      .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel")
+      .select("id, pagarme_order_id, pagamento_status, status, device_serial, split_rules, base_amount, payment_channel, total")
       .eq("id", venda_id)
       .maybeSingle();
     if (vErr || !venda) return json({ error: "Venda não encontrada" }, 404);
@@ -83,7 +83,11 @@ Deno.serve(async (req) => {
       venda.payment_channel === "pos"
     ) {
       captureAttempted = true;
-      const amount = (charge?.amount as number | undefined) ?? venda.base_amount;
+      // Amount em centavos: prioriza o total real da venda (com centavos).
+      const totalCents =
+        venda.total != null ? Math.round(Number(venda.total) * 100) : null;
+      const amount =
+        totalCents ?? (charge?.amount as number | undefined) ?? venda.base_amount;
       const splitRules = venda.split_rules as unknown[] | null;
       const captureUrl =
         splitRules && Array.isArray(splitRules) && splitRules.length > 0
