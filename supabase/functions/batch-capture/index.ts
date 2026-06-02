@@ -8,9 +8,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const PAGARME_BASE_URL            = "https://api.pagar.me/core/v5";
+const PLATFORM_RATE_DEBIT         = 0.0098; // 0,98% débito
 const PLATFORM_RATE_CREDIT_AVISTA = 0.0125; // 1,25% crédito 1×
 const PLATFORM_RATE_CREDIT_PARC   = 0.0135; // 1,35% crédito 2×+
 const ANTICIPATION_RATE           = 0.011;  // 1,10% antecipação
+const PIX_FLAT_FEE                = 90;     // R$ 0,90 fixo em centavos
 const PLATFORM_RECIPIENT_ID       = "re_cmp709bbxe5y20l9t4pnjpa76";
 const LAGOINHA_RECIPIENT_ID       = "re_cmpcr534o9me40l9ti0cnqz6e";
 
@@ -36,12 +38,25 @@ const chargeIds = [
   "ch_pW90Jjbcpf9r06lM",
 ];
 
-function calcSplit(amount: number, installments: number, anticipation: boolean) {
-  const inst      = Math.max(1, installments);
-  const baseRate  = inst === 1 ? PLATFORM_RATE_CREDIT_AVISTA : PLATFORM_RATE_CREDIT_PARC;
-  const totalRate = baseRate + (anticipation ? ANTICIPATION_RATE : 0);
-  const platformAmount = Math.round(amount * totalRate);
-  const sellerAmount   = amount - platformAmount;
+function calcSplit(
+  amount: number,
+  installments: number,
+  anticipation: boolean,
+  paymentMethod: string,
+) {
+  let platformAmount: number;
+  if (paymentMethod === "pix") {
+    platformAmount = PIX_FLAT_FEE;
+  } else if (paymentMethod === "debit_card") {
+    platformAmount = Math.round(amount * PLATFORM_RATE_DEBIT);
+  } else {
+    // credit_card
+    const inst      = Math.max(1, installments);
+    const baseRate  = inst === 1 ? PLATFORM_RATE_CREDIT_AVISTA : PLATFORM_RATE_CREDIT_PARC;
+    const totalRate = baseRate + (anticipation ? ANTICIPATION_RATE : 0);
+    platformAmount  = Math.round(amount * totalRate);
+  }
+  const sellerAmount = amount - platformAmount;
   return {
     platformAmount,
     sellerAmount,
@@ -86,13 +101,19 @@ Deno.serve(async (req) => {
         results.push({ chargeId, skipped: true, reason: "ja_pago" });
         continue;
       }
-      if (charge.status !== "authorized") {
-        results.push({ chargeId, skipped: true, reason: `status_${charge.status ?? "desconhecido"}` });
+      const lastTxStatus = charge.last_transaction?.status as string | undefined;
+      if (lastTxStatus !== "authorized_pending_capture") {
+        results.push({
+          chargeId,
+          skipped: true,
+          reason: `last_tx_status_${lastTxStatus ?? "desconhecido"}`,
+        });
         continue;
       }
 
-      const amount       = charge.amount as number;
-      const installments = (charge.last_transaction?.installments as number | undefined) ?? 1;
+      const amount        = charge.amount as number;
+      const paymentMethod = (charge.payment_method as string) ?? "credit_card";
+      const installments  = (charge.last_transaction?.installments as number | undefined) ?? 1;
 
       // 2. Busca anticipation na venda (best-effort — default false)
       const { data: venda } = await admin
@@ -103,9 +124,14 @@ Deno.serve(async (req) => {
       const anticipation = (venda?.anticipation as boolean | null) ?? false;
 
       // 3. Calcula split com taxas vigentes
-      const { platformAmount, sellerAmount, rules } = calcSplit(amount, installments, anticipation);
+      const { platformAmount, sellerAmount, rules } = calcSplit(
+        amount,
+        installments,
+        anticipation,
+        paymentMethod,
+      );
 
-      console.log(`[batch-capture] chargeId: ${chargeId} | amount da Pagar.me: ${amount} | installments: ${installments} | split plataforma: ${platformAmount} | split Lagoinha: ${sellerAmount} | soma: ${platformAmount + sellerAmount}`);
+      console.log(`[batch-capture] chargeId: ${chargeId} | method: ${paymentMethod} | amount: ${amount} | installments: ${installments} | antic: ${anticipation} | split plataforma: ${platformAmount} | split Lagoinha: ${sellerAmount} | soma: ${platformAmount + sellerAmount}`);
 
       // Validação: a soma dos splits deve ser igual ao amount da Pagar.me
       if (platformAmount + sellerAmount !== amount) {
@@ -150,6 +176,7 @@ Deno.serve(async (req) => {
         capture_ok:      captureRes.ok,
         capture_status:  captureData?.status ?? null,
         amount,
+        payment_method:  paymentMethod,
         installments,
         anticipation,
         platform_amount: platformAmount,
