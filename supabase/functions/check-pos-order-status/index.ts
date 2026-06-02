@@ -4,14 +4,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PLATFORM_RATE = 0.0096;
-const OPERATION_RATE = 0.03;
-const INSTALLMENT_RATE = 0.025;
-const PIX_PLATFORM_FEE_CENTS = 50;
+// Antecipação 1,10% sempre ligada.
+const PIX_PLATFORM_FEE_CENTS = 90;     // R$ 0,90
+const DEBIT_RATE             = 0.0098; // 0,98%
+const CREDIT_1X_BASE_RATE    = 0.0125; // 1,25% à vista 30d
+const CREDIT_N_BASE_RATE     = 0.0135; // 1,35% parcelado
+const ANTICIPATION_RATE      = 0.011;  // 1,10%
 
 // Recalcula o split em centavos a partir do amount real capturado, garantindo
 // que platform_amount + seller_amount === amount.
-// Taxas: Pix → R$ 0,50 fixo · Débito → 3,96% · Crédito → 3,96% + 2,5%/parcela.
+// Taxas: Pix → R$ 0,90 fixo · Débito → 0,98% · Crédito 1× → 2,35% · Crédito ≥2× → 2,45% (flat)
 function recomputeSplit(
   amountCents: number,
   paymentType: "credit" | "debit" | "pix",
@@ -23,11 +25,11 @@ function recomputeSplit(
   if (paymentType === "pix") {
     platformAmount = Math.min(PIX_PLATFORM_FEE_CENTS, amountCents);
   } else if (paymentType === "debit") {
-    const rate = PLATFORM_RATE + OPERATION_RATE;
-    platformAmount = Math.round(amountCents * rate);
+    platformAmount = Math.round(amountCents * DEBIT_RATE);
   } else {
     const inst = Math.max(1, Math.floor(installments || 1));
-    const rate = PLATFORM_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+    const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+    const rate = baseRate + ANTICIPATION_RATE;
     platformAmount = Math.round(amountCents * rate);
   }
   const sellerAmount = amountCents - platformAmount;
