@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
       // Busca a venda correspondente
       const { data: venda } = await supabase
         .from("vendas")
-        .select("id, split_rules, device_serial, base_amount, payment_channel")
+        .select("id, split_rules, device_serial, base_amount, payment_channel, total")
         .eq("pagarme_order_id", orderId)
         .maybeSingle();
       if (venda?.id) logEntry.venda_id = venda.id;
@@ -144,7 +144,11 @@ Deno.serve(async (req) => {
 
       // Só faz captura automática para fluxo POS (online já vem capturado)
       if (venda?.payment_channel === "pos") {
-        const amount = chargeAmt ?? venda?.base_amount;
+        // Amount em centavos: prioriza o total real da venda (com centavos),
+        // depois o valor autorizado pela charge, e por último base_amount.
+        const totalCents =
+          venda?.total != null ? Math.round(Number(venda.total) * 100) : null;
+        const amount = totalCents ?? chargeAmt ?? venda?.base_amount;
         const splitRules = venda?.split_rules as unknown[] | null;
 
         const captureUrl =
