@@ -151,10 +151,7 @@ Deno.serve(async (req) => {
         const amount = totalCents ?? chargeAmt ?? venda?.base_amount;
         const splitRules = venda?.split_rules as unknown[] | null;
 
-        const captureUrl =
-          splitRules && Array.isArray(splitRules) && splitRules.length > 0
-            ? `${PAGARME_BASE_URL}/charges/${chargeId}/capture-with-split-rules`
-            : `${PAGARME_BASE_URL}/charges/${chargeId}/capture`;
+        const captureUrl = `${PAGARME_BASE_URL}/charges/${chargeId}/capture`;
         const capturePayload =
           splitRules && Array.isArray(splitRules) && splitRules.length > 0
             ? { amount, split: splitRules }
