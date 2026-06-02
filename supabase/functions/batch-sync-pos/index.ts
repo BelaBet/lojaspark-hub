@@ -5,10 +5,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PLATFORM_RATE = 0.0096;
-const OPERATION_RATE = 0.03;
-const INSTALLMENT_RATE = 0.025;
-const PIX_PLATFORM_FEE_CENTS = 50;
+const PIX_PLATFORM_FEE_CENTS = 90;
+const DEBIT_RATE             = 0.0098;
+const CREDIT_1X_BASE_RATE    = 0.0125;
+const CREDIT_N_BASE_RATE     = 0.0135;
+const ANTICIPATION_RATE      = 0.011;
 
 function recomputeSplit(
   amountCents: number,
@@ -21,10 +22,11 @@ function recomputeSplit(
   if (paymentType === "pix") {
     platformAmount = Math.min(PIX_PLATFORM_FEE_CENTS, amountCents);
   } else if (paymentType === "debit") {
-    platformAmount = Math.round(amountCents * (PLATFORM_RATE + OPERATION_RATE));
+    platformAmount = Math.round(amountCents * DEBIT_RATE);
   } else {
     const inst = Math.max(1, Math.floor(installments || 1));
-    const rate = PLATFORM_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+    const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+    const rate = baseRate + ANTICIPATION_RATE;
     platformAmount = Math.round(amountCents * rate);
   }
   const sellerAmount = amountCents - platformAmount;
