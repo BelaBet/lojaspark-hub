@@ -286,3 +286,7 @@ function Row({
     </div>
   );
 }
+
+function Divider() {
+  return <div className="my-1 border-t" />;
+}
