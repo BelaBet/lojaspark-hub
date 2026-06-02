@@ -9,21 +9,32 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PLATFORM_BASE_RATE = 0.0096;
-const INSTALLMENT_RATE = 0.011;
+const PLATFORM_RATE = 0.0096;
+const OPERATION_RATE = 0.03;
+const INSTALLMENT_RATE = 0.025;
+const PIX_PLATFORM_FEE_CENTS = 50;
 
 // Recalcula o split em centavos a partir do amount real capturado, garantindo
 // que platform_amount + seller_amount === amount (sem divergência de arredondamento).
+// Taxas: Pix → R$ 0,50 fixo · Débito → 3,96% · Crédito → 3,96% + 2,5%/parcela.
 function recomputeSplit(
   amountCents: number,
+  paymentType: "credit" | "debit" | "pix",
   installments: number,
   platformRecipientId: string,
   sellerRecipientId: string,
 ) {
-  const inst = Math.max(1, Math.floor(installments || 1));
-  const surchargeRate = inst > 1 ? INSTALLMENT_RATE * (inst - 1) : 0;
-  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
-  const platformAmount = Math.round(amountCents * platformRate);
+  let platformAmount: number;
+  if (paymentType === "pix") {
+    platformAmount = Math.min(PIX_PLATFORM_FEE_CENTS, amountCents);
+  } else if (paymentType === "debit") {
+    const rate = PLATFORM_RATE + OPERATION_RATE;
+    platformAmount = Math.round(amountCents * rate);
+  } else {
+    const inst = Math.max(1, Math.floor(installments || 1));
+    const rate = PLATFORM_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+    platformAmount = Math.round(amountCents * rate);
+  }
   const sellerAmount = amountCents - platformAmount;
   return {
     platformAmount,
@@ -166,7 +177,7 @@ Deno.serve(async (req) => {
       // Busca a venda correspondente
       const { data: venda } = await supabase
         .from("vendas")
-        .select("id, split_rules, device_serial, base_amount, payment_channel, total, installments, seller_recipient_id")
+        .select("id, split_rules, device_serial, base_amount, payment_channel, total, installments, seller_recipient_id, forma_pagamento")
         .eq("pagarme_order_id", orderId)
         .maybeSingle();
       if (venda?.id) logEntry.venda_id = venda.id;
@@ -196,8 +207,12 @@ Deno.serve(async (req) => {
         let recomputedPlatform: number | null = null;
         let recomputedSeller: number | null = null;
         if (hadSplit && platformRecipientId && sellerRecipientId) {
+          const fp = (venda?.forma_pagamento as string | null) ?? "";
+          const paymentType: "credit" | "debit" | "pix" =
+            fp === "pix" ? "pix" : fp === "cartao_debito" ? "debit" : "credit";
           const built = recomputeSplit(
             amount,
+            paymentType,
             (venda?.installments as number | null) ?? 1,
             platformRecipientId,
             sellerRecipientId,

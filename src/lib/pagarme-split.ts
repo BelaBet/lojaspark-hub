@@ -136,3 +136,32 @@ export function formatBRL(cents: number): string {
     currency: "BRL",
   });
 }
+
+// ─── Backward-compat aliases (consumidores antigos) ───────────────────────────
+/** @deprecated use PLATFORM_RATE */
+export const BASE_FEE_RATE = PLATFORM_RATE;
+/** @deprecated taxa de operação (antes "Stone MDR") */
+export const STONE_MDR_RATE = OPERATION_RATE;
+
+/**
+ * Alias retro-compatível. Antes era usado tanto para crédito quanto débito.
+ * - installments > 1 → crédito parcelado
+ * - installments = 1 → crédito 1× (mesmas taxas que antes)
+ * Retorna o shape antigo com `baseFeeAmount`, `installmentSurcharge` e `platformRate`.
+ */
+export function calculateSplit(
+  baseAmount: number,
+  installments: number,
+  passToCustomer: boolean,
+) {
+  const r = calculateCreditSplit(baseAmount, installments, passToCustomer);
+  const baseFeeAmount = passToCustomer
+    ? Math.round(baseAmount * (PLATFORM_RATE + OPERATION_RATE))
+    : 0;
+  return {
+    ...r,
+    baseFeeAmount,
+    installmentSurcharge: r.installmentFeeAmount,
+    platformRate: r.totalRate,
+  };
+}
