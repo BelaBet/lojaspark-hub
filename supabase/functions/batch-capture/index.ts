@@ -103,6 +103,13 @@ Deno.serve(async () => {
 
       console.log(`[batch-capture] chargeId: ${chargeId} | amount da Pagar.me: ${amount} | installments: ${installments} | split plataforma: ${platformAmount} | split Lagoinha: ${sellerAmount} | soma: ${platformAmount + sellerAmount}`);
 
+      // Validação: a soma dos splits deve ser igual ao amount da Pagar.me
+      if (platformAmount + sellerAmount !== amount) {
+        throw new Error(
+          `Divergência de split: amount=${amount}, plataforma=${platformAmount}, Lagoinha=${sellerAmount}, soma=${platformAmount + sellerAmount}`
+        );
+      }
+
       // 4. Executa captura com split
       const captureRes = await fetch(`${PAGARME_BASE_URL}/charges/${chargeId}/capture`, {
         method: "POST",
