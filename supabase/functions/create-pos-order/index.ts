@@ -1,29 +1,35 @@
-// Edge function: cria pedido na maquininha (Pagar.me Connect / POI) com split,
-// e atualiza a venda (já criada pelo PDV como pendente) com os dados de cobrança.
+// Edge function: cria pedido na maquininha (Pagar.me Connect / POI) com split.
+//
+// Taxas repassadas ao cliente:
+//   Pix         → R$ 0,50 fixo
+//   Débito      → 3,96% (0,96% plataforma + 3,00% operação)
+//   Crédito 1×  → 6,46% (0,96% + 3,00% + 2,50%)
+//   Crédito N×  → 0,96% + 3,00% + (2,50% × N)
 //
 // Body esperado:
 // {
 //   venda_id: string,
-//   amount: number,                // centavos (total com acréscimo, já calculado no client)
-//   customer: { name, email, document?, area_code?, phone? },
+//   amount: number,           // centavos BASE (sem acréscimo)
+//   customer: { name, email },
 //   device_serial: string,
-//   payment_type: "credit" | "debit",
+//   payment_type: "credit" | "debit" | "pix",
 //   installments?: number,
-//   seller_recipient_id?: string,  // re_xxxx — habilita split
+//   seller_recipient_id?: string,
 //   print_receipt?: boolean,
 //   display_name?: string,
 // }
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PLATFORM_BASE_RATE = 0.0096;
-const INSTALLMENT_RATE = 0.011;
+const PAGARME_BASE_URL       = "https://api.pagar.me/core/v5";
+const PLATFORM_RATE          = 0.0096;
+const OPERATION_RATE         = 0.03;
+const INSTALLMENT_RATE       = 0.025;
+const PIX_PLATFORM_FEE_CENTS = 50;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(data: unknown, status = 200) {
@@ -33,17 +39,38 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function calcDebit(baseAmount: number) {
+  const rate           = PLATFORM_RATE + OPERATION_RATE; // 3,96%
+  const totalAmount    = baseAmount + Math.round(baseAmount * rate);
+  const platformAmount = Math.round(totalAmount * rate);
+  const sellerAmount   = totalAmount - platformAmount;
+  return { totalAmount, platformAmount, sellerAmount };
+}
+
+function calcCredit(baseAmount: number, installments: number) {
+  const inst           = Math.max(1, installments);
+  const rate           = PLATFORM_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+  const totalAmount    = baseAmount + Math.round(baseAmount * rate);
+  const platformAmount = Math.round(totalAmount * rate);
+  const sellerAmount   = totalAmount - platformAmount;
+  return { totalAmount, platformAmount, sellerAmount };
+}
+
+function calcPix(baseAmount: number) {
+  return {
+    totalAmount:    baseAmount + PIX_PLATFORM_FEE_CENTS,
+    platformAmount: PIX_PLATFORM_FEE_CENTS,
+    sellerAmount:   baseAmount,
+  };
+}
+
 function buildSplitRules(
-  totalAmount: number,
-  installments: number,
+  platformAmount: number,
+  sellerAmount: number,
   platformRecipientId: string,
   sellerRecipientId: string,
 ) {
-  const surchargeRate = installments > 1 ? INSTALLMENT_RATE * (installments - 1) : 0;
-  const platformRate = PLATFORM_BASE_RATE + surchargeRate;
-  const platformAmount = Math.round(totalAmount * platformRate);
-  const sellerAmount = totalAmount - platformAmount;
-  const rules = [
+  return [
     {
       recipient_id: platformRecipientId,
       amount: platformAmount,
@@ -57,7 +84,6 @@ function buildSplitRules(
       options: { charge_processing_fee: true, charge_remainder_fee: true, liable: true },
     },
   ];
-  return { rules, platformAmount, sellerAmount };
 }
 
 Deno.serve(async (req) => {
@@ -96,72 +122,71 @@ Deno.serve(async (req) => {
       display_name,
     } = body ?? {};
 
-    if (!venda_id) return json({ error: "venda_id obrigatório" }, 400);
+    if (!venda_id)              return json({ error: "venda_id obrigatório" }, 400);
     if (!amount || amount <= 0) return json({ error: "amount inválido" }, 400);
-    if (!device_serial) return json({ error: "device_serial obrigatório" }, 400);
-    if (
-      payment_type !== "credit" &&
-      payment_type !== "debit" &&
-      payment_type !== "pix"
-    ) {
+    if (!device_serial)         return json({ error: "device_serial obrigatório" }, 400);
+    if (!["credit", "debit", "pix"].includes(payment_type)) {
       return json({ error: "payment_type deve ser 'credit', 'debit' ou 'pix'" }, 400);
     }
     if (!customer?.name || !customer?.email) {
       return json({ error: "customer.name e customer.email obrigatórios" }, 400);
     }
 
-    // ── Verifica que a maquininha pertence à loja do usuário (via RLS) ───────
+    // ── Verifica maquininha ───────────────────────────────────────────────────
     const { data: maq, error: maqErr } = await supabase
       .from("maquininhas")
       .select("id, serial, ativo, loja_id")
       .eq("serial", device_serial)
       .maybeSingle();
     if (maqErr || !maq) return json({ error: "Maquininha não encontrada" }, 404);
-    if (!maq.ativo) return json({ error: "Maquininha inativa" }, 400);
+    if (!maq.ativo)     return json({ error: "Maquininha inativa" }, 400);
 
-    // ── Verifica que a venda existe e pertence à loja ────────────────────────
+    // ── Verifica venda ────────────────────────────────────────────────────────
     const { data: venda, error: vErr } = await supabase
       .from("vendas")
       .select("id, loja_id, pagamento_status")
       .eq("id", venda_id)
       .maybeSingle();
-    if (vErr || !venda) return json({ error: "Venda não encontrada" }, 404);
-    if (venda.loja_id !== maq.loja_id) {
-      return json({ error: "Maquininha de outra loja" }, 403);
+    if (vErr || !venda)              return json({ error: "Venda não encontrada" }, 404);
+    if (venda.loja_id !== maq.loja_id) return json({ error: "Maquininha de outra loja" }, 403);
+
+    // ── Cálculo do split por método ───────────────────────────────────────────
+    const inst = payment_type === "credit" ? Math.max(1, installments) : 1;
+    let totalAmount: number;
+    let platformAmount: number;
+    let sellerAmount: number;
+
+    if (payment_type === "pix") {
+      ({ totalAmount, platformAmount, sellerAmount } = calcPix(amount));
+    } else if (payment_type === "debit") {
+      ({ totalAmount, platformAmount, sellerAmount } = calcDebit(amount));
+    } else {
+      ({ totalAmount, platformAmount, sellerAmount } = calcCredit(amount, inst));
     }
 
-    // ── Split rules (se houver recipient) ────────────────────────────────────
-    // PIX e débito sempre 1×, sem acréscimo de parcela.
-    const inst = payment_type === "credit" ? installments : 1;
-    let splitRules: ReturnType<typeof buildSplitRules>["rules"] | null = null;
-    let platformAmount: number | null = null;
-    let sellerAmount: number | null = null;
-    if (platformRecipientId && seller_recipient_id) {
-      const built = buildSplitRules(amount, inst, platformRecipientId, seller_recipient_id);
-      splitRules = built.rules;
-      platformAmount = built.platformAmount;
-      sellerAmount = built.sellerAmount;
-    }
+    const splitRules =
+      platformRecipientId && seller_recipient_id
+        ? buildSplitRules(platformAmount, sellerAmount, platformRecipientId, seller_recipient_id)
+        : null;
 
-    // ── Payload Pagar.me Connect (POI) ───────────────────────────────────────
-    const orderPayload = {
+    // ── Payload Pagar.me Connect (POI) ────────────────────────────────────────
+    const orderPayload: Record<string, unknown> = {
       customer: { name: customer.name, email: customer.email },
       items: [
         {
-          amount,
+          amount:      totalAmount,
           description: display_name ?? "Venda PDV",
-          quantity: "1",
-          code: "PDV-001",
+          quantity:    "1",
+          code:        "PDV-001",
         },
       ],
       closed: false,
       poi_payment_settings: {
-        visible: "true",
-        print_order_receipt: print_receipt ? "true" : "false",
+        visible:               "true",
+        print_order_receipt:   print_receipt ? "true" : "false",
         devices_serial_number: [device_serial],
         payment_setup: {
           type: payment_type,
-          // PIX não usa parcelas
           ...(payment_type !== "pix" && { installments: inst }),
         },
         display_name: display_name ?? "Venda PDV",
@@ -185,9 +210,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── Atualiza venda com dados de cobrança via service role ────────────────
-    // (campos financeiros são protegidos pelo trigger vendas_protect_financial_fields;
-    //  vendedores não podem alterá-los pelo JWT — apenas o backend pode)
+    // ── Atualiza venda via service role ───────────────────────────────────────
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -195,31 +218,33 @@ Deno.serve(async (req) => {
     await admin
       .from("vendas")
       .update({
-        pagarme_order_id: data.id,
-        pagamento_status: "pendente",
-        payment_channel: "pos",
+        pagarme_order_id:    data.id,
+        pagamento_status:    "pendente",
+        payment_channel:     "pos",
         device_serial,
-        installments: inst,
-        base_amount: amount,
-        platform_amount: platformAmount,
-        seller_amount: sellerAmount,
+        installments:        inst,
+        base_amount:         totalAmount,
+        platform_amount:     platformAmount,
+        seller_amount:       sellerAmount,
         seller_recipient_id: seller_recipient_id ?? null,
-        split_rules: splitRules,
+        split_rules:         splitRules,
       })
       .eq("id", venda_id);
 
-    // ── Atualiza última atividade da maquininha ──────────────────────────────
     await admin
       .from("maquininhas")
       .update({ ultima_atividade: new Date().toISOString() })
       .eq("id", maq.id);
 
     return json({
-      order_id: data.id,
-      status: data.status,
-      amount,
+      order_id:        data.id,
+      status:          data.status,
+      amount:          totalAmount,
+      base_amount:     amount,
+      platform_amount: platformAmount,
+      seller_amount:   sellerAmount,
       device_serial,
-      has_split: !!splitRules,
+      has_split:       !!splitRules,
     });
   } catch (err) {
     console.error("create-pos-order erro:", err);
