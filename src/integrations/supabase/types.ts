@@ -599,6 +599,7 @@ export type Database = {
       }
       vendas: {
         Row: {
+          anticipation: boolean
           base_amount: number | null
           cliente_id: string | null
           created_at: string
@@ -626,6 +627,7 @@ export type Database = {
           vendedor_nome: string | null
         }
         Insert: {
+          anticipation?: boolean
           base_amount?: number | null
           cliente_id?: string | null
           created_at?: string
@@ -653,6 +655,7 @@ export type Database = {
           vendedor_nome?: string | null
         }
         Update: {
+          anticipation?: boolean
           base_amount?: number | null
           cliente_id?: string | null
           created_at?: string
