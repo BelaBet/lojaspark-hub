@@ -4,9 +4,15 @@ const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
 
 const PLATFORM_RECIPIENT_ID = "re_cmp709bbxe5y20l9t4pnjpa76";
 const LAGOINHA_RECIPIENT_ID = "re_cmpcr534o9me40l9ti0cnqz6e";
-const PLATFORM_BASE_RATE    = 0.0096;
-const OPERATION_RATE        = 0.03;
-const INSTALLMENT_RATE      = 0.025;
+// Novas taxas (antecipação 1,10% sempre ligada):
+//   Débito           → 0,98%
+//   Crédito 1× (30d) → 1,25% + 1,10% = 2,35%
+//   Crédito ≥2×      → 1,35% + 1,10% = 2,45% (flat)
+//   Pix              → R$ 0,90 fixo (não usado aqui — só captura crédito/débito)
+const DEBIT_RATE          = 0.0098;
+const CREDIT_1X_BASE_RATE = 0.0125;
+const CREDIT_N_BASE_RATE  = 0.0135;
+const ANTICIPATION_RATE   = 0.011;
 
 const chargeIds = [
   "ch_3kmM7peH9CNDGX1j",
@@ -19,9 +25,15 @@ const chargeIds = [
   "ch_7ZxlBDIQyFEvLGAe",
 ];
 
-function buildSplit(amount: number, installments: number) {
-  const inst           = Math.max(1, installments);
-  const totalRate      = PLATFORM_BASE_RATE + OPERATION_RATE + INSTALLMENT_RATE * inst;
+function buildSplit(amount: number, installments: number, paymentType: "credit" | "debit" = "credit") {
+  const inst = Math.max(1, installments);
+  let totalRate: number;
+  if (paymentType === "debit") {
+    totalRate = DEBIT_RATE;
+  } else {
+    const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
+    totalRate = baseRate + ANTICIPATION_RATE;
+  }
   const platformAmount = Math.round(amount * totalRate);
   const sellerAmount   = amount - platformAmount;
   return [
@@ -67,13 +79,14 @@ Deno.serve(async () => {
 
       const { data: venda } = await admin
         .from("vendas")
-        .select("id, base_amount, installments")
+        .select("id, base_amount, installments, forma_pagamento")
         .eq("pagarme_charge_id", chargeId)
         .maybeSingle();
 
       const amount       = (venda?.base_amount as number | undefined) ?? charge.amount;
       const installments = (venda?.installments as number | undefined) ?? 1;
-      const split        = buildSplit(amount, installments);
+      const paymentType  = venda?.forma_pagamento === "cartao_debito" ? "debit" : "credit";
+      const split        = buildSplit(amount, installments, paymentType);
       const platformAmt  = split[0].amount;
       const sellerAmt    = split[1].amount;
 
