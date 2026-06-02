@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
   // Busca as 23 vendas pendentes com pagarme_order_id
   const { data: vendas, error } = await admin
     .from("vendas")
-    .select("id, pagarme_order_id, anticipation, base_amount")
+    .select("id, pagarme_order_id, base_amount")
     .eq("pagamento_status", "pendente")
     .eq("payment_channel", "pos")
     .gte("created_at", "2026-05-29T00:00:00Z")
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const anticipation = (venda.anticipation as boolean | null) ?? false;
+      const anticipation = false;
       const { platformAmount, sellerAmount, rules } = calcSplit(
         amount, paymentMethod, installments, anticipation,
       );
