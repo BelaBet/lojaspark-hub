@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.pagarme-webhook]
 verify_jwt = false
+
+[functions.test-pagarme-webhook]
+verify_jwt = true

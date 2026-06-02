@@ -20,6 +20,7 @@ import CatalogoPublico from "./pages/CatalogoPublico.tsx";
 import Admin from "./pages/Admin.tsx";
 import WebhookAuditoria from "./pages/WebhookAuditoria.tsx";
 import TestePagamento from "./pages/TestePagamento.tsx";
+import WebhookConfig from "./pages/WebhookConfig.tsx";
 import Configuracoes from "./pages/Configuracoes.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/webhooks" element={<WebhookAuditoria />} />
           <Route path="/admin/teste-pagamento" element={<TestePagamento />} />
+          <Route path="/admin/webhook-config" element={<WebhookConfig />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
