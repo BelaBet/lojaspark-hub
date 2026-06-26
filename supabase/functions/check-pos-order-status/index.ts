@@ -216,6 +216,27 @@ Deno.serve(async (req) => {
       novoStatus = "cancelada";
     }
 
+    if (chargeStatus === "refunded") {
+      // Reembolso pode ser PARCIAL — não tratar como cancelamento total.
+      // O objeto charge expõe o valor reembolsado em amount_refunded; na
+      // ausência desse campo, assume-se reembolso total por segurança
+      // (mesmo comportamento anterior).
+      const refundedAmount = (charge?.amount_refunded as number | undefined) ?? null;
+      const totalAmountCents =
+        (charge?.amount as number | undefined) ?? venda.base_amount ?? 0;
+      const isFullRefund =
+        refundedAmount === null ||
+        (totalAmountCents > 0 && refundedAmount >= totalAmountCents);
+
+      if (isFullRefund) {
+        novoPagamento = "falhou";
+        novoStatus = "cancelada";
+      } else {
+        novoPagamento = "reembolso_parcial";
+        novoStatus = null;
+      }
+    }
+
     // Atualiza via service role (campos financeiros são protegidos pelo trigger)
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,

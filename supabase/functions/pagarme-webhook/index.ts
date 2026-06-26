@@ -300,6 +300,38 @@ Deno.serve(async (req) => {
       novoPagamentoStatus = "falhou";
     }
 
+    if (eventType === "charge.refunded") {
+      // Reembolso pode ser PARCIAL — não tratar como cancelamento total.
+      // A Pagar.me envia o valor já reembolsado em data.amount (centavos).
+      // Compara contra o valor total cobrado da venda; só marca como
+      // cancelada quando o reembolso cobre o valor integral.
+      const matchVendaId = data?.order_id ?? data?.id;
+      const { data: vendaRefund } = await supabase
+        .from("vendas")
+        .select("id, base_amount, total")
+        .eq("pagarme_order_id", matchVendaId)
+        .maybeSingle();
+
+      const refundedAmount = (data?.amount as number | undefined) ?? 0;
+      const totalAmountCents =
+        vendaRefund?.base_amount ?? Math.round((vendaRefund?.total ?? 0) * 100);
+
+      const isFullRefund = totalAmountCents > 0 && refundedAmount >= totalAmountCents;
+      logEntry.refund_amount = refundedAmount;
+      logEntry.refund_total_amount = totalAmountCents;
+      logEntry.refund_is_full = isFullRefund;
+
+      if (isFullRefund) {
+        novoStatus = "cancelada";
+        novoPagamentoStatus = "falhou";
+      } else {
+        // Reembolso parcial: a venda continua paga, só registramos o
+        // valor devolvido para fins de conferência/relatório.
+        novoStatus = "concluida";
+        novoPagamentoStatus = "reembolso_parcial";
+      }
+    }
+
     if (!novoStatus && !novoPagamentoStatus) {
       return finish(200, JSON.stringify({ received: true, ignored: eventType }), { auth_ok: true });
     }
