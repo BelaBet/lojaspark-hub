@@ -4,6 +4,10 @@
 type ErrorLike = { message?: string; code?: string; status?: number; error_description?: string } | string | null | undefined;
 
 const MAP: Array<[RegExp, string]> = [
+  // Estoque (trigger validar_estoque_disponivel)
+  [/estoque insuficiente para "?([^":]+)"?:?\s*dispon[ií]vel\s*([\d.,]+),?\s*solicitado\s*([\d.,]+)/i,
+    'Estoque insuficiente para "$1": disponível $2, solicitado $3.'],
+
   // Auth
   [/invalid login credentials/i, "E-mail ou senha incorretos."],
   [/invalid email or password/i, "E-mail ou senha incorretos."],
