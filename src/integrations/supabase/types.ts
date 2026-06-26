@@ -810,6 +810,7 @@ export type Database = {
         | { Args: { _loja_id: string; _role: string }; Returns: boolean }
         | { Args: { _role: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      set_current_loja: { Args: { _loja_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "super_admin"
