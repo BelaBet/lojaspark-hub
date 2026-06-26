@@ -434,7 +434,14 @@ const Vendas = () => {
       venda_id: vendaIns.id, produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: i.preco_unit, desconto: 0,
     }));
     const { error: iErr } = await supabase.from("venda_itens").insert(itens);
-    if (iErr) { setFinalizando(false); toast.error(traduzErro(iErr)); return null; }
+    if (iErr) {
+      // Rollback: a venda já foi criada, mas os itens falharam (ex.: estoque insuficiente).
+      // Removemos a venda órfã para não deixar registro "concluido" sem itens.
+      await supabase.from("vendas").delete().eq("id", vendaIns.id);
+      setFinalizando(false);
+      toast.error(traduzErro(iErr));
+      return null;
+    }
     setFinalizando(false);
     setVendaPendente({ id: vendaIns.id, created_at: vendaIns.created_at });
     return vendaIns.id;
@@ -499,6 +506,8 @@ const Vendas = () => {
     }));
     const { error: iErr } = await supabase.from("venda_itens").insert(itens);
     if (iErr) {
+      // Rollback: venda criada mas itens falharam (ex.: estoque insuficiente).
+      await supabase.from("vendas").delete().eq("id", vendaIns.id);
       setFinalizando(false);
       toast.error(traduzErro(iErr));
       return;
