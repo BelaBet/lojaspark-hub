@@ -438,6 +438,57 @@ export type Database = {
           },
         ]
       }
+      payment_fee_rules: {
+        Row: {
+          acquirer: string
+          active: boolean
+          anticipation_rate: number
+          created_at: string
+          description: string | null
+          fixed_fee_cents: number
+          id: string
+          installment_max: number
+          installment_min: number
+          pass_to_customer: boolean
+          payment_method: string
+          percentage_rate: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          acquirer?: string
+          active?: boolean
+          anticipation_rate?: number
+          created_at?: string
+          description?: string | null
+          fixed_fee_cents?: number
+          id?: string
+          installment_max?: number
+          installment_min?: number
+          pass_to_customer?: boolean
+          payment_method: string
+          percentage_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          acquirer?: string
+          active?: boolean
+          anticipation_rate?: number
+          created_at?: string
+          description?: string | null
+          fixed_fee_cents?: number
+          id?: string
+          installment_max?: number
+          installment_min?: number
+          pass_to_customer?: boolean
+          payment_method?: string
+          percentage_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           aliquota_icms: number | null
