@@ -1,0 +1,87 @@
+{
+  "closed": false,
+  "customer": {
+    "name": "Tony Stark",
+    "type": "individual",
+    "email": "avengerstark@ligadajustica.com.br",
+    "document": "08747011041",
+    "address": {
+      "street": "Avenida Dra Ruth Cardoso",
+      "number": "7221",
+      "complement": "Prédio",
+      "zip_code": "05425070",
+      "neighborhood": "Pinheiro",
+      "city": "São Paulo",
+      "state": "SP",
+      "country": "BR"
+    },
+    "phones": {
+      "mobile_phone": {
+        "country_code": "55",
+        "area_code": "11",
+        "number": "000000000"
+      }
+    }
+  },
+  "items": [
+    {
+      "amount": 2990,
+      "description": "Chaveiro do Tesseract",
+      "quantity": 1,
+      "code": "123"
+    }
+  ],
+  "payments": [
+    {
+      "payment_method": "credit_card",
+      "credit_card": {
+        "operation_type": "auth_only",
+        "installments": 19,
+        "statement_descriptor": "MARIA JOAQUINA",
+        "card": {
+          "number": "4000000000000010",
+          "holder_name": "Tony Stark",
+          "exp_month": 7,
+          "exp_year": 30,
+          "cvv": "215",
+          "billing_address": {
+            "line_1": "7221, Avenida Dra Ruth Cardoso, Pinheiro",
+            "zip_code": "05425070",
+            "city": "São Paulo",
+            "state": "SP",
+            "country": "BR"
+          }
+        }
+      },
+      "method": {
+        "card": {
+          "card_token": "token_9gRMkxjUeULA0deP"
+        }
+      },
+      "manual_billing": false,
+      "customer": {
+        "email": "avengerstark@ligadajustica.com.br",
+        "name": "Tony Stark",
+        "type": "individual",
+        "document": "37898765436",
+        "phones": {
+          "mobile_phone": {
+            "country_code": "55",
+            "area_code": "11",
+            "number": "000000000"
+          }
+        },
+        "address": {
+          "street": "Avenida Dra Ruth Cardoso",
+          "number": "7221",
+          "complement": "Prédio",
+          "zip_code": "05425070",
+          "neighborhood": "Pinheiro",
+          "city": "São Paulo",
+          "state": "SP",
+          "country": "BR"
+        }
+      }
+    }
+  ]
+}
