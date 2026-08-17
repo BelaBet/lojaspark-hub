@@ -20,14 +20,10 @@
 // }
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { loadFeeRates, DEFAULT_FEE_RATES, type FeeRates } from "../_shared/fee-rules.ts";
 
 const PAGARME_BASE_URL       = "https://api.pagar.me/core/v5";
-// Antecipação 1,10% sempre ligada.
-const PIX_PLATFORM_FEE_CENTS = 90;     // R$ 0,90
-const DEBIT_RATE             = 0.0098; // 0,98%
-const CREDIT_1X_BASE_RATE    = 0.0125; // 1,25% à vista 30d
-const CREDIT_N_BASE_RATE     = 0.0135; // 1,35% parcelado
-const ANTICIPATION_RATE      = 0.011;  // 1,10%
+// Taxas vêm de public.payment_fee_rules (Super Admin → /admin/taxas).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,28 +37,28 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function calcDebit(baseAmount: number) {
-  const rate           = DEBIT_RATE;
+function calcDebit(baseAmount: number, rates: FeeRates) {
+  const rate           = rates.debit;
   const totalAmount    = baseAmount + Math.round(baseAmount * rate);
   const platformAmount = Math.round(totalAmount * rate);
   const sellerAmount   = totalAmount - platformAmount;
   return { totalAmount, platformAmount, sellerAmount };
 }
 
-function calcCredit(baseAmount: number, installments: number) {
+function calcCredit(baseAmount: number, installments: number, rates: FeeRates) {
   const inst           = Math.max(1, installments);
-  const baseRate       = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
-  const rate           = baseRate + ANTICIPATION_RATE;
+  const baseRate       = inst === 1 ? rates.credit1x : rates.creditNx;
+  const rate           = baseRate + rates.anticipation;
   const totalAmount    = baseAmount + Math.round(baseAmount * rate);
   const platformAmount = Math.round(totalAmount * rate);
   const sellerAmount   = totalAmount - platformAmount;
   return { totalAmount, platformAmount, sellerAmount };
 }
 
-function calcPix(baseAmount: number) {
+function calcPix(baseAmount: number, rates: FeeRates) {
   return {
-    totalAmount:    baseAmount + PIX_PLATFORM_FEE_CENTS,
-    platformAmount: PIX_PLATFORM_FEE_CENTS,
+    totalAmount:    baseAmount + rates.pixFixedCents,
+    platformAmount: rates.pixFixedCents,
     sellerAmount:   baseAmount,
   };
 }
@@ -155,16 +151,17 @@ Deno.serve(async (req) => {
 
     // ── Cálculo do split por método ───────────────────────────────────────────
     const inst = payment_type === "credit" ? Math.max(1, installments) : 1;
+    const rates = await loadFeeRates().catch(() => DEFAULT_FEE_RATES);
     let totalAmount: number;
     let platformAmount: number;
     let sellerAmount: number;
 
     if (payment_type === "pix") {
-      ({ totalAmount, platformAmount, sellerAmount } = calcPix(amount));
+      ({ totalAmount, platformAmount, sellerAmount } = calcPix(amount, rates));
     } else if (payment_type === "debit") {
-      ({ totalAmount, platformAmount, sellerAmount } = calcDebit(amount));
+      ({ totalAmount, platformAmount, sellerAmount } = calcDebit(amount, rates));
     } else {
-      ({ totalAmount, platformAmount, sellerAmount } = calcCredit(amount, inst));
+      ({ totalAmount, platformAmount, sellerAmount } = calcCredit(amount, inst, rates));
     }
 
     const splitRules =

@@ -7,42 +7,38 @@
 //   Crédito 1×  → 6,46% (0,96% + 3,00% + 2,50%)
 //   Crédito N×  → 0,96% + 3,00% + (2,50% × N)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { loadFeeRates, DEFAULT_FEE_RATES, type FeeRates } from "../_shared/fee-rules.ts";
 
 const PAGARME_BASE_URL       = "https://api.pagar.me/core/v5";
-// Antecipação 1,10% sempre ligada.
-const PIX_PLATFORM_FEE_CENTS = 90;     // R$ 0,90
-const DEBIT_RATE             = 0.0098; // 0,98%
-const CREDIT_1X_BASE_RATE    = 0.0125; // 1,25% à vista 30d
-const CREDIT_N_BASE_RATE     = 0.0135; // 1,35% parcelado
-const ANTICIPATION_RATE      = 0.011;  // 1,10%
+// Taxas vêm de public.payment_fee_rules (Super Admin → /admin/taxas).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function calculateDebitSplit(baseAmount: number) {
-  const totalRate      = DEBIT_RATE;
+function calculateDebitSplit(baseAmount: number, rates: FeeRates) {
+  const totalRate      = rates.debit;
   const totalAmount    = baseAmount + Math.round(baseAmount * totalRate);
   const platformAmount = Math.round(totalAmount * totalRate);
   const sellerAmount   = totalAmount - platformAmount;
   return { totalAmount, platformAmount, sellerAmount };
 }
 
-function calculateCreditSplit(baseAmount: number, installments: number) {
+function calculateCreditSplit(baseAmount: number, installments: number, rates: FeeRates) {
   const inst           = Math.max(1, installments);
-  const baseRate       = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
-  const totalRate      = baseRate + ANTICIPATION_RATE;
+  const baseRate       = inst === 1 ? rates.credit1x : rates.creditNx;
+  const totalRate      = baseRate + rates.anticipation;
   const totalAmount    = baseAmount + Math.round(baseAmount * totalRate);
   const platformAmount = Math.round(totalAmount * totalRate);
   const sellerAmount   = totalAmount - platformAmount;
   return { totalAmount, platformAmount, sellerAmount };
 }
 
-function calculatePixSplit(baseAmount: number) {
+function calculatePixSplit(baseAmount: number, rates: FeeRates) {
   return {
-    totalAmount:    baseAmount + PIX_PLATFORM_FEE_CENTS,
-    platformAmount: PIX_PLATFORM_FEE_CENTS,
+    totalAmount:    baseAmount + rates.pixFixedCents,
+    platformAmount: rates.pixFixedCents,
     sellerAmount:   baseAmount,
   };
 }
@@ -125,17 +121,18 @@ Deno.serve(async (req) => {
     if (!amount || amount <= 0) return json({ error: "amount obrigatório (em centavos)" }, 400);
 
     // ── Cálculo do split por método ──────────────────────────────────────────
+    const rates = await loadFeeRates().catch(() => DEFAULT_FEE_RATES);
     let totalAmount: number;
     let platformAmount: number;
     let sellerAmount: number;
 
     if (payment_method === "pix") {
-      ({ totalAmount, platformAmount, sellerAmount } = calculatePixSplit(amount));
+      ({ totalAmount, platformAmount, sellerAmount } = calculatePixSplit(amount, rates));
     } else if (payment_method === "debit_card") {
-      ({ totalAmount, platformAmount, sellerAmount } = calculateDebitSplit(amount));
+      ({ totalAmount, platformAmount, sellerAmount } = calculateDebitSplit(amount, rates));
     } else {
       const installments = card?.installments ?? 1;
-      ({ totalAmount, platformAmount, sellerAmount } = calculateCreditSplit(amount, installments));
+      ({ totalAmount, platformAmount, sellerAmount } = calculateCreditSplit(amount, installments, rates));
     }
 
     const splitConfig =
