@@ -57,7 +57,7 @@ export default function AdminTaxas() {
   <Card className="p-5 space-y-4">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div><h3 className="font-semibold">Taxas e regras direto da API Pagar.me</h3><p className="text-xs text-muted-foreground">A Pagar.me não expõe tabela de preços; as taxas reais vêm dos recebíveis (fee ÷ valor bruto) e das regras de antecipação/transferência do recebedor.</p></div>
-      <div className="flex gap-2"><Button variant="outline" onClick={() => fetchApi(false)} disabled={apiLoading}>{apiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}Consultar API</Button><Button onClick={() => fetchApi(true)} disabled={apiLoading}><Download className="h-4 w-4 mr-2" />Importar para as regras</Button></div>
+      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto"><Button className="w-full sm:w-auto" variant="outline" onClick={() => fetchApi(false)} disabled={apiLoading}>{apiLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}Consultar API</Button><Button className="w-full sm:w-auto" onClick={() => fetchApi(true)} disabled={apiLoading}><Download className="h-4 w-4 mr-2" />Importar para as regras</Button></div>
     </div>
     {apiData && <div className="space-y-4">
       <div className="text-xs text-muted-foreground">{apiData.payables_analyzed ?? 0} recebíveis analisados · {apiData.note}</div>
