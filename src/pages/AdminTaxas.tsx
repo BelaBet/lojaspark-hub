@@ -1,0 +1,225 @@
+import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { AppLayout } from "@/components/AppLayout";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Percent, Plus, Pencil, Trash2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+
+type Rule = {
+  id: string;
+  acquirer: string;
+  payment_method: "pix" | "debit_card" | "credit_card";
+  installment_min: number;
+  installment_max: number;
+  percentage_rate: number;
+  fixed_fee_cents: number;
+  anticipation_rate: number;
+  pass_to_customer: boolean;
+  active: boolean;
+  description: string | null;
+};
+
+type FormState = Omit<Rule, "id">;
+
+const emptyForm: FormState = {
+  acquirer: "pagarme",
+  payment_method: "credit_card",
+  installment_min: 1,
+  installment_max: 1,
+  percentage_rate: 0,
+  fixed_fee_cents: 0,
+  anticipation_rate: 0,
+  pass_to_customer: true,
+  active: true,
+  description: "",
+};
+
+const methodLabel: Record<Rule["payment_method"], string> = {
+  pix: "PIX",
+  debit_card: "Débito",
+  credit_card: "Crédito",
+};
+
+const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
+
+export default function AdminTaxas() {
+  const [checked, setChecked] = useState(false);
+  const [isSuper, setIsSuper] = useState(false);
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Rule | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from("payment_fee_rules").select("*").order("acquirer").order("payment_method").order("installment_min");
+    if (error) toast.error(error.message);
+    else setRules((data ?? []) as Rule[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.rpc("is_super_admin");
+      const ok = !error && data === true;
+      setIsSuper(ok);
+      setChecked(true);
+      if (ok) await load();
+      else setLoading(false);
+    })();
+  }, []);
+
+  const grouped = useMemo(() => rules.filter((r) => r.acquirer === "pagarme"), [rules]);
+
+  const openNew = () => {
+    setEditing(null);
+    setForm({ ...emptyForm });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (rule: Rule) => {
+    setEditing(rule);
+    setForm({
+      acquirer: rule.acquirer,
+      payment_method: rule.payment_method,
+      installment_min: rule.installment_min,
+      installment_max: rule.installment_max,
+      percentage_rate: rule.percentage_rate,
+      fixed_fee_cents: rule.fixed_fee_cents,
+      anticipation_rate: rule.anticipation_rate,
+      pass_to_customer: rule.pass_to_customer,
+      active: rule.active,
+      description: rule.description ?? "",
+    });
+    setDialogOpen(true);
+  };
+
+  const save = async () => {
+    if (form.installment_min < 1 || form.installment_max < form.installment_min) {
+      toast.error("Faixa de parcelas inválida");
+      return;
+    }
+    if (form.percentage_rate < 0 || form.anticipation_rate < 0 || form.fixed_fee_cents < 0) {
+      toast.error("As taxas não podem ser negativas");
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      ...form,
+      percentage_rate: Number(form.percentage_rate),
+      anticipation_rate: Number(form.anticipation_rate),
+      fixed_fee_cents: Number(form.fixed_fee_cents),
+      installment_min: Number(form.installment_min),
+      installment_max: Number(form.installment_max),
+      description: form.description?.trim() || null,
+    };
+    const result = editing
+      ? await supabase.from("payment_fee_rules").update(payload).eq("id", editing.id)
+      : await supabase.from("payment_fee_rules").insert(payload);
+    if (result.error) toast.error(result.error.message);
+    else {
+      toast.success(editing ? "Taxa atualizada" : "Taxa criada");
+      setDialogOpen(false);
+      await load();
+    }
+    setSaving(false);
+  };
+
+  const remove = async (rule: Rule) => {
+    if (!window.confirm(`Excluir a regra ${methodLabel[rule.payment_method]} ${rule.installment_min}–${rule.installment_max}x?`)) return;
+    const { error } = await supabase.from("payment_fee_rules").delete().eq("id", rule.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Taxa excluída");
+      await load();
+    }
+  };
+
+  if (!checked) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!isSuper) return <Navigate to="/dashboard" replace />;
+
+  return (
+    <AppLayout>
+      <div className="max-w-6xl space-y-6">
+        <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-muted-foreground mono text-[10px] uppercase tracking-widest">
+              <ShieldCheck className="h-3.5 w-3.5" /> Super Admin
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight mt-1">Taxas de pagamento</h1>
+            <p className="text-sm text-muted-foreground mt-1">As regras financeiras ficam no banco. Altere aqui sem publicar código novo.</p>
+          </div>
+          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Nova taxa</Button>
+        </header>
+
+        <Card className="p-4 border-primary/20 bg-primary/5">
+          <div className="flex gap-3 items-start">
+            <Percent className="h-5 w-5 text-primary mt-0.5" />
+            <div className="text-sm">
+              <strong>Regra centralizada.</strong> O Pagar.me consulta estas taxas no banco ao criar o pedido. O valor efetivamente cobrado é calculado no backend; esta tela é a fonte administrativa.
+            </div>
+          </div>
+        </Card>
+
+        {loading ? <div className="py-12 flex justify-center"><Loader2 className="animate-spin" /></div> : (
+          <div className="grid gap-3">
+            {grouped.map((rule) => (
+              <Card key={rule.id} className="p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold">Pagar.me · {methodLabel[rule.payment_method]}</h3>
+                      <Badge variant={rule.active ? "default" : "outline"}>{rule.active ? "Ativa" : "Inativa"}</Badge>
+                      {rule.pass_to_customer && <Badge variant="secondary">Repassa ao cliente</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{rule.description || "Sem descrição"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm min-w-[420px]">
+                    <div><div className="text-xs text-muted-foreground">Parcelas</div><strong>{rule.installment_min}–{rule.installment_max}x</strong></div>
+                    <div><div className="text-xs text-muted-foreground">Percentual</div><strong>{pct(rule.percentage_rate)}</strong></div>
+                    <div><div className="text-xs text-muted-foreground">Fixa</div><strong>{money(rule.fixed_fee_cents)}</strong></div>
+                    <div><div className="text-xs text-muted-foreground">Antecipação</div><strong>{pct(rule.anticipation_rate)}</strong></div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openEdit(rule)}><Pencil className="h-3.5 w-3.5 mr-1" /> Editar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => remove(rule)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader><DialogTitle>{editing ? "Editar taxa" : "Nova taxa de pagamento"}</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Adquirente</Label><Input value={form.acquirer} onChange={e => setForm(f => ({ ...f, acquirer: e.target.value.toLowerCase() }))} placeholder="pagarme" /></div>
+              <div><Label>Meio</Label><Select value={form.payment_method} onValueChange={(v: Rule["payment_method"]) => setForm(f => ({ ...f, payment_method: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pix">PIX</SelectItem><SelectItem value="debit_card">Débito</SelectItem><SelectItem value="credit_card">Crédito</SelectItem></SelectContent></Select></div>
+              <div><Label>Parcela inicial</Label><Input type="number" min="1" value={form.installment_min} onChange={e => setForm(f => ({ ...f, installment_min: Number(e.target.value) }))} /></div>
+              <div><Label>Parcela final</Label><Input type="number" min="1" value={form.installment_max} onChange={e => setForm(f => ({ ...f, installment_max: Number(e.target.value) }))} /></div>
+              <div><Label>Taxa percentual (%)</Label><Input type="number" step="0.01" min="0" value={(form.percentage_rate * 100).toFixed(2)} onChange={e => setForm(f => ({ ...f, percentage_rate: Number(e.target.value) / 100 }))} /></div>
+              <div><Label>Taxa fixa (centavos)</Label><Input type="number" min="0" value={form.fixed_fee_cents} onChange={e => setForm(f => ({ ...f, fixed_fee_cents: Number(e.target.value) }))} /><p className="text-[11px] text-muted-foreground mt-1">R$ {(form.fixed_fee_cents / 100).toFixed(2)}</p></div>
+              <div><Label>Antecipação (%)</Label><Input type="number" step="0.01" min="0" value={(form.anticipation_rate * 100).toFixed(2)} onChange={e => setForm(f => ({ ...f, anticipation_rate: Number(e.target.value) / 100 }))} /></div>
+              <div><Label>Descrição</Label><Input value={form.description ?? ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">Ativa</div><div className="text-xs text-muted-foreground">Usada pelo checkout/API</div></div><Switch checked={form.active} onCheckedChange={v => setForm(f => ({ ...f, active: v }))} /></div>
+            <div className="flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">Repassar ao cliente</div><div className="text-xs text-muted-foreground">Inclui a taxa no valor cobrado</div></div><Switch checked={form.pass_to_customer} onCheckedChange={v => setForm(f => ({ ...f, pass_to_customer: v }))} /></div>
+            <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button><Button onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar taxa</Button></div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+}
