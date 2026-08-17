@@ -443,6 +443,7 @@ export type Database = {
           acquirer: string
           active: boolean
           anticipation_rate: number
+          card_brand: string | null
           created_at: string
           description: string | null
           fixed_fee_cents: number
@@ -459,6 +460,7 @@ export type Database = {
           acquirer?: string
           active?: boolean
           anticipation_rate?: number
+          card_brand?: string | null
           created_at?: string
           description?: string | null
           fixed_fee_cents?: number
@@ -475,6 +477,7 @@ export type Database = {
           acquirer?: string
           active?: boolean
           anticipation_rate?: number
+          card_brand?: string | null
           created_at?: string
           description?: string | null
           fixed_fee_cents?: number
