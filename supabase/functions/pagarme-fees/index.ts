@@ -142,7 +142,6 @@ Deno.serve(async (req) => {
       status: recipient.status,
       automatic_anticipation_settings: recipient.automatic_anticipation_settings ?? null,
       transfer_settings: recipient.transfer_settings ?? null,
-determinis:      undefined,
     } : recipient?.errors ?? null,
     observed_rates: observed,
     applied,
