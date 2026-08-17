@@ -18,6 +18,7 @@ import NotasFiscais from "./pages/NotasFiscais.tsx";
 import NotaFiscalDetalhe from "./pages/NotaFiscalDetalhe.tsx";
 import CatalogoPublico from "./pages/CatalogoPublico.tsx";
 import Admin from "./pages/Admin.tsx";
+import AdminTaxas from "./pages/AdminTaxas.tsx";
 import WebhookAuditoria from "./pages/WebhookAuditoria.tsx";
 import TestePagamento from "./pages/TestePagamento.tsx";
 import WebhookConfig from "./pages/WebhookConfig.tsx";
@@ -52,13 +53,13 @@ const App = () => (
           <Route path="/notas-fiscais/:id" element={<NotaFiscalDetalhe />} />
           <Route path="/c/:lojaId" element={<CatalogoPublico />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/taxas" element={<AdminTaxas />} />
           <Route path="/admin/webhooks" element={<WebhookAuditoria />} />
           <Route path="/admin/teste-pagamento" element={<TestePagamento />} />
           <Route path="/admin/webhook-config" element={<WebhookConfig />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="/simulador" element={<SimuladorSplit />} />
           <Route path="/admin/batch-capture" element={<BatchCapture />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
