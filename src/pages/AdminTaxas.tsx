@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Percent, Plus, Pencil, Trash2, ShieldCheck } from "lucide-react";
+import { Loader2, Percent, Plus, Pencil, Trash2, ShieldCheck, CreditCard, WalletCards, Landmark } from "lucide-react";
 import { toast } from "sonner";
 
 type Rule = {
@@ -48,6 +48,12 @@ const methodLabel: Record<Rule["payment_method"], string> = {
   credit_card: "Crédito",
 };
 
+const methodIcon: Record<Rule["payment_method"], typeof CreditCard> = {
+  pix: WalletCards,
+  debit_card: Landmark,
+  credit_card: CreditCard,
+};
+
 const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const pct = (value: number) => `${(value * 100).toFixed(2)}%`;
 
@@ -81,10 +87,11 @@ export default function AdminTaxas() {
   }, []);
 
   const grouped = useMemo(() => rules.filter((r) => r.acquirer === "pagarme"), [rules]);
+  const methods: Rule["payment_method"][] = ["pix", "debit_card", "credit_card"];
 
-  const openNew = () => {
+  const openNew = (paymentMethod: Rule["payment_method"] = "credit_card") => {
     setEditing(null);
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, payment_method: paymentMethod });
     setDialogOpen(true);
   };
 
@@ -160,7 +167,7 @@ export default function AdminTaxas() {
             <h1 className="font-display text-3xl font-bold tracking-tight mt-1">Taxas de pagamento</h1>
             <p className="text-sm text-muted-foreground mt-1">As regras financeiras ficam no banco. Altere aqui sem publicar código novo.</p>
           </div>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Nova taxa</Button>
+          <Button onClick={() => openNew()}><Plus className="h-4 w-4 mr-2" /> Nova taxa</Button>
         </header>
 
         <Card className="p-4 border-primary/20 bg-primary/5">
@@ -173,31 +180,52 @@ export default function AdminTaxas() {
         </Card>
 
         {loading ? <div className="py-12 flex justify-center"><Loader2 className="animate-spin" /></div> : (
-          <div className="grid gap-3">
-            {grouped.map((rule) => (
-              <Card key={rule.id} className="p-4">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold">Pagar.me · {methodLabel[rule.payment_method]}</h3>
-                      <Badge variant={rule.active ? "default" : "outline"}>{rule.active ? "Ativa" : "Inativa"}</Badge>
-                      {rule.pass_to_customer && <Badge variant="secondary">Repassa ao cliente</Badge>}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {methods.map((method) => {
+              const Icon = methodIcon[method];
+              const methodRules = grouped.filter((r) => r.payment_method === method);
+              return (
+                <Card key={method} className="p-5 flex flex-col min-h-[260px]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Pagar.me · {methodLabel[method]}</h3>
+                        <p className="text-xs text-muted-foreground">{methodRules.length} regra{methodRules.length === 1 ? "" : "s"} cadastrada{methodRules.length === 1 ? "" : "s"}</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{rule.description || "Sem descrição"}</p>
+                    <Badge variant={methodRules.some((r) => r.active) ? "default" : "outline"}>{methodRules.some((r) => r.active) ? "Ativa" : "Inativa"}</Badge>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm min-w-[420px]">
-                    <div><div className="text-xs text-muted-foreground">Parcelas</div><strong>{rule.installment_min}–{rule.installment_max}x</strong></div>
-                    <div><div className="text-xs text-muted-foreground">Percentual</div><strong>{pct(rule.percentage_rate)}</strong></div>
-                    <div><div className="text-xs text-muted-foreground">Fixa</div><strong>{money(rule.fixed_fee_cents)}</strong></div>
-                    <div><div className="text-xs text-muted-foreground">Antecipação</div><strong>{pct(rule.anticipation_rate)}</strong></div>
+
+                  <div className="mt-5 space-y-3 flex-1">
+                    {methodRules.length === 0 ? (
+                      <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">Nenhuma taxa configurada.</div>
+                    ) : methodRules.map((rule) => (
+                      <div key={rule.id} className="rounded-lg border p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-sm">{rule.payment_method === "credit_card" ? `${rule.installment_min}–${rule.installment_max}x` : "Taxa única"}</strong>
+                          <Badge variant={rule.active ? "default" : "outline"}>{rule.active ? "Ativa" : "Inativa"}</Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div><div className="text-xs text-muted-foreground">Percentual</div><strong>{pct(rule.percentage_rate)}</strong></div>
+                          <div><div className="text-xs text-muted-foreground">Fixa</div><strong>{money(rule.fixed_fee_cents)}</strong></div>
+                          <div><div className="text-xs text-muted-foreground">Antecipação</div><strong>{pct(rule.anticipation_rate)}</strong></div>
+                          <div><div className="text-xs text-muted-foreground">Repasse</div><strong>{rule.pass_to_customer ? "Sim" : "Não"}</strong></div>
+                        </div>
+                        <div className="flex justify-end gap-1 pt-1">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(rule)}><Pencil className="h-3.5 w-3.5 mr-1" /> Editar</Button>
+                          <Button size="sm" variant="ghost" onClick={() => remove(rule)} aria-label={`Excluir ${methodLabel[rule.payment_method]}`}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(rule)}><Pencil className="h-3.5 w-3.5 mr-1" /> Editar</Button>
-                    <Button size="sm" variant="ghost" onClick={() => remove(rule)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+
+                  <Button className="mt-4 w-full" variant="outline" onClick={() => openNew(method)}><Plus className="h-4 w-4 mr-2" /> Adicionar taxa de {methodLabel[method]}</Button>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -206,7 +234,7 @@ export default function AdminTaxas() {
             <DialogHeader><DialogTitle>{editing ? "Editar taxa" : "Nova taxa de pagamento"}</DialogTitle></DialogHeader>
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Adquirente</Label><Input value={form.acquirer} onChange={e => setForm(f => ({ ...f, acquirer: e.target.value.toLowerCase() }))} placeholder="pagarme" /></div>
-              <div><Label>Meio</Label><Select value={form.payment_method} onValueChange={(v: Rule["payment_method"]) => setForm(f => ({ ...f, payment_method: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pix">PIX</SelectItem><SelectItem value="debit_card">Débito</SelectItem><SelectItem value="credit_card">Crédito</SelectItem></SelectContent></Select></div>
+              <div><Label>Meio</Label><Select value={form.payment_method} onValueChange={(v: Rule["payment_method"]) => setForm(f => ({ ...f, payment_method: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pix">PIX</SelectItem><SelectItem value="debit_card">Débito</SelectItem><SelectItem value="credit_card">Crédito</SelectItem></SelectContent></div>
               <div><Label>Parcela inicial</Label><Input type="number" min="1" value={form.installment_min} onChange={e => setForm(f => ({ ...f, installment_min: Number(e.target.value) }))} /></div>
               <div><Label>Parcela final</Label><Input type="number" min="1" value={form.installment_max} onChange={e => setForm(f => ({ ...f, installment_max: Number(e.target.value) }))} /></div>
               <div><Label>Taxa percentual (%)</Label><Input type="number" step="0.01" min="0" value={(form.percentage_rate * 100).toFixed(2)} onChange={e => setForm(f => ({ ...f, percentage_rate: Number(e.target.value) / 100 }))} /></div>
