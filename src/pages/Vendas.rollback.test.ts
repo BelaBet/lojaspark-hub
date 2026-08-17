@@ -23,7 +23,7 @@ describe("Vendas rollback regression", () => {
     const failures = [...source.matchAll(/if \(iErr\) \{([\s\S]*?)\n\s*\}/g)].map((match) => match[1]);
 
     for (const branch of failures) {
-      expect(branch).toMatch(/return\s+(null|;)/);
+      expect(branch).toMatch(/return(?:\s+null)?;/);
     }
   });
 });
