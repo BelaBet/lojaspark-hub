@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -26,10 +27,16 @@ import Configuracoes from "./pages/Configuracoes.tsx";
 import SimuladorSplit from "./pages/SimuladorSplit.tsx";
 import BatchCapture from "./pages/BatchCapture.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { loadFeeRatesFromDb } from "@/lib/fee-rules";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    loadFeeRatesFromDb().catch(() => undefined);
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -65,6 +72,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

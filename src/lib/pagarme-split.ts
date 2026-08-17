@@ -6,11 +6,71 @@
 //   Crédito 1×       → 1,25% (+ 1,10% se antecipação)
 //   Crédito 2×+      → 1,35% (+ 1,10% se antecipação)
 
+// As taxas são cadastradas pelo Super Admin em /admin/taxas (tabela payment_fee_rules).
+// Os valores abaixo são apenas fallback caso o banco ainda não tenha regras.
 export const PLATFORM_RATE_DEBIT         = 0.0098;
 export const PLATFORM_RATE_CREDIT_AVISTA = 0.0125;
 export const PLATFORM_RATE_CREDIT_PARC   = 0.0135;
 export const ANTICIPATION_RATE           = 0.011;
 export const PIX_PLATFORM_FEE_CENTS      = 90;
+
+export type FeeRates = {
+  pixFixedCents: number;
+  debit: number;
+  credit1x: number;
+  creditNx: number;
+  anticipation: number;
+};
+
+export const DEFAULT_FEE_RATES: FeeRates = {
+  pixFixedCents: PIX_PLATFORM_FEE_CENTS,
+  debit:         PLATFORM_RATE_DEBIT,
+  credit1x:      PLATFORM_RATE_CREDIT_AVISTA,
+  creditNx:      PLATFORM_RATE_CREDIT_PARC,
+  anticipation:  ANTICIPATION_RATE,
+};
+
+let currentRates: FeeRates = { ...DEFAULT_FEE_RATES };
+
+export function getFeeRates(): FeeRates {
+  return currentRates;
+}
+
+export function setFeeRates(partial: Partial<FeeRates>) {
+  currentRates = { ...currentRates, ...partial };
+}
+
+type FeeRuleRow = {
+  payment_method: "pix" | "debit_card" | "credit_card";
+  installment_min: number;
+  installment_max: number;
+  percentage_rate: number | string;
+  fixed_fee_cents: number;
+  anticipation_rate: number | string;
+  active: boolean;
+};
+
+/** Converte as regras do banco (Super Admin) para as taxas usadas nos cálculos. */
+export function feeRatesFromRules(rows: FeeRuleRow[]): FeeRates {
+  const rates = { ...DEFAULT_FEE_RATES };
+  for (const r of rows) {
+    if (!r.active) continue;
+    const pctRate = Number(r.percentage_rate) || 0;
+    const antRate = Number(r.anticipation_rate) || 0;
+    if (r.payment_method === "pix") {
+      rates.pixFixedCents = Number(r.fixed_fee_cents) || 0;
+    } else if (r.payment_method === "debit_card") {
+      rates.debit = pctRate;
+    } else if (r.installment_min <= 1 && r.installment_max <= 1) {
+      rates.credit1x = pctRate;
+      rates.anticipation = antRate;
+    } else {
+      rates.creditNx = pctRate;
+      rates.anticipation = antRate;
+    }
+  }
+  return rates;
+}
 
 export type SplitResult = {
   totalAmount: number;
@@ -31,7 +91,7 @@ export function calculateDebitSplit(
   baseAmount: number,
   passToCustomer: boolean,
 ): SplitResult {
-  const totalRate      = PLATFORM_RATE_DEBIT;
+  const totalRate      = getFeeRates().debit;
   const feeCents       = passToCustomer ? Math.round(baseAmount * totalRate) : 0;
   const totalAmount    = baseAmount + feeCents;
   const platformAmount = Math.round(totalAmount * totalRate);
@@ -46,9 +106,10 @@ export function calculateCreditSplit(
   passToCustomer: boolean,
   anticipation = false,
 ): SplitResult {
+  const rates        = getFeeRates();
   const inst         = Math.max(1, Math.floor(installments || 1));
-  const baseRate     = inst === 1 ? PLATFORM_RATE_CREDIT_AVISTA : PLATFORM_RATE_CREDIT_PARC;
-  const totalRate    = baseRate + (anticipation ? ANTICIPATION_RATE : 0);
+  const baseRate     = inst === 1 ? rates.credit1x : rates.creditNx;
+  const totalRate    = baseRate + (anticipation ? rates.anticipation : 0);
   const feeCents     = passToCustomer ? Math.round(baseAmount * totalRate) : 0;
   const totalAmount  = baseAmount + feeCents;
   const platformAmount = Math.round(totalAmount * totalRate);
@@ -58,9 +119,10 @@ export function calculateCreditSplit(
 
 /** Pix — R$ 0,90 fixo repassado ao cliente. */
 export function calculatePixSplit(baseAmount: number): PixSplitResult {
+  const fixed = getFeeRates().pixFixedCents;
   return {
-    totalAmount:    baseAmount + PIX_PLATFORM_FEE_CENTS,
-    platformAmount: PIX_PLATFORM_FEE_CENTS,
+    totalAmount:    baseAmount + fixed,
+    platformAmount: fixed,
     sellerAmount:   baseAmount,
   };
 }
@@ -132,11 +194,12 @@ export function calculateSplit(
   anticipation = false,
 ) {
   const r = calculateCreditSplit(baseAmount, installments, passToCustomer, anticipation);
+  const rates = getFeeRates();
   const inst = Math.max(1, Math.floor(installments || 1));
-  const baseRate = inst === 1 ? PLATFORM_RATE_CREDIT_AVISTA : PLATFORM_RATE_CREDIT_PARC;
+  const baseRate = inst === 1 ? rates.credit1x : rates.creditNx;
   const baseFeeAmount       = passToCustomer ? Math.round(baseAmount * baseRate) : 0;
   const installmentSurcharge = passToCustomer && anticipation
-    ? Math.round(baseAmount * ANTICIPATION_RATE)
+    ? Math.round(baseAmount * rates.anticipation)
     : 0;
   return {
     ...r,

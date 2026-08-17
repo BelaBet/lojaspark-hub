@@ -7,13 +7,10 @@
 //          charge.payment_failed, order.canceled, charge.refunded.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { loadFeeRates, DEFAULT_FEE_RATES, type FeeRates } from "../_shared/fee-rules.ts";
 
 const PAGARME_BASE_URL = "https://api.pagar.me/core/v5";
-const PIX_PLATFORM_FEE_CENTS = 90;
-const DEBIT_RATE             = 0.0098;
-const CREDIT_1X_BASE_RATE    = 0.0125;
-const CREDIT_N_BASE_RATE     = 0.0135;
-const ANTICIPATION_RATE      = 0.011;
+// Taxas vêm de public.payment_fee_rules (Super Admin → /admin/taxas).
 
 // Recalcula o split em centavos a partir do amount real capturado, garantindo
 // que platform_amount + seller_amount === amount (sem divergência de arredondamento).
@@ -24,16 +21,17 @@ function recomputeSplit(
   installments: number,
   platformRecipientId: string,
   sellerRecipientId: string,
+  rates: FeeRates,
 ) {
   let platformAmount: number;
   if (paymentType === "pix") {
-    platformAmount = Math.min(PIX_PLATFORM_FEE_CENTS, amountCents);
+    platformAmount = Math.min(rates.pixFixedCents, amountCents);
   } else if (paymentType === "debit") {
-    platformAmount = Math.round(amountCents * DEBIT_RATE);
+    platformAmount = Math.round(amountCents * rates.debit);
   } else {
     const inst = Math.max(1, Math.floor(installments || 1));
-    const baseRate = inst === 1 ? CREDIT_1X_BASE_RATE : CREDIT_N_BASE_RATE;
-    const rate = baseRate + ANTICIPATION_RATE;
+    const baseRate = inst === 1 ? rates.credit1x : rates.creditNx;
+    const rate = baseRate + rates.anticipation;
     platformAmount = Math.round(amountCents * rate);
   }
   const sellerAmount = amountCents - platformAmount;
@@ -217,6 +215,7 @@ Deno.serve(async (req) => {
             (venda?.installments as number | null) ?? 1,
             platformRecipientId,
             sellerRecipientId,
+            await loadFeeRates().catch(() => DEFAULT_FEE_RATES),
           );
           splitForCapture = built.rules;
           recomputedPlatform = built.platformAmount;
